@@ -8,7 +8,7 @@ import pandas as pd
 
 # Directorio de datos (carpeta /data en la raíz del proyecto)
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DATA_DIR = PROJECT_ROOT / "data"
+DATA_DIR = PROJECT_ROOT / "data" / "downloadedData"   
 
 
 def get_binance_exchange() -> ccxt.binance:
