@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from backtesting.engine import BacktestConfig
 
 from strategies.macd_adx_trend_strategy import MACDADXTrendStrategyConfig
+from strategies.supertrend_strategy import SupertrendStrategyConfig
+from strategies.bollinger_mean_reversion import BollingerMeanReversionStrategyConfig
 
 from utils.risk import RiskManagementConfig
 
@@ -92,10 +94,74 @@ MACD_ADX_ETH15M_RUN = StrategyRunConfig(
 
 
 # ==========================
+# Estrategia 2: Supertrend (BTC/USDT 15m)
+# ==========================
+
+SUPERTREND_BTC15M_CONFIG = SupertrendStrategyConfig(
+    atr_period=10,
+    atr_multiplier=3.0,
+    use_adx_filter=True,
+    adx_period=14,
+    adx_threshold=20.0,
+)
+
+SUPERTREND_BTC15M_BT_CONFIG = BacktestConfig(
+    initial_capital=1000.0,
+    sl_pct=0.01,     # 1% SL
+    tp_rr=5.0,       # TP 1:5
+    fee_pct=0.0005,
+    allow_short=True,
+)
+
+SUPERTREND_BTC15M_RUN = StrategyRunConfig(
+    name="SUPERTREND_OPT_BTCUSDT_15m",
+    symbol="BTC/USDT",
+    timeframe="15m",
+    limit_candles=DEFAULT_LIMIT_CANDLES,
+    strategy_type="SUPERTREND",
+    strategy_config=SUPERTREND_BTC15M_CONFIG,
+    backtest_config=SUPERTREND_BTC15M_BT_CONFIG,
+)
+
+
+# ==========================
+# Estrategia 3: Bollinger Mean Reversion (BNB/USDT 15m)
+# ==========================
+
+BOLLINGER_BNB15M_CONFIG = BollingerMeanReversionStrategyConfig(
+    bb_window=40,
+    bb_std=2.5,
+    rsi_window=14,
+    rsi_oversold=30.0,
+    rsi_overbought=75.0,
+)
+
+BOLLINGER_BNB15M_BT_CONFIG = BacktestConfig(
+    initial_capital=1000.0,
+    sl_pct=0.015,    # 1.5% SL
+    tp_rr=1.5,       # TP 1:1.5
+    fee_pct=0.0005,
+    allow_short=True,
+)
+
+BOLLINGER_BNB15M_RUN = StrategyRunConfig(
+    name="BOLLINGER_MR_OPT_BNBUSDT_15m",
+    symbol="BNB/USDT",
+    timeframe="15m",
+    limit_candles=DEFAULT_LIMIT_CANDLES,
+    strategy_type="BOLLINGER_MR",
+    strategy_config=BOLLINGER_BNB15M_CONFIG,
+    backtest_config=BOLLINGER_BNB15M_BT_CONFIG,
+)
+
+
+# ==========================
 # Registro de estrategias optimizadas
 # (usado por backtest_strategies.py)
 # ==========================
 
 OPTIMIZED_STRATEGIES = [
     MACD_ADX_ETH15M_RUN,
+    SUPERTREND_BTC15M_RUN,
+    BOLLINGER_BNB15M_RUN,
 ]

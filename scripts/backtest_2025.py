@@ -15,6 +15,8 @@ from strategies.macd_adx_trend_strategy import MACDADXTrendStrategy
 from strategies.keltner_breakout_strategy import KeltnerBreakoutStrategy
 from strategies.archived.bb_trend_strategy import BBTrendStrategy
 from strategies.squeeze_momentum_strategy import SqueezeMomentumStrategy
+from strategies.supertrend_strategy import SupertrendStrategy
+from strategies.bollinger_mean_reversion import BollingerMeanReversionStrategy
 
 
 def run_single_strategy_date_range(run_cfg, start_date, end_date):
@@ -99,6 +101,10 @@ def run_single_strategy_date_range(run_cfg, start_date, end_date):
         strategy = BBTrendStrategy(config=run_cfg.strategy_config)
     elif run_cfg.strategy_type == "SQUEEZE":
         strategy = SqueezeMomentumStrategy(config=run_cfg.strategy_config)
+    elif run_cfg.strategy_type == "SUPERTREND":
+        strategy = SupertrendStrategy(config=run_cfg.strategy_config)
+    elif run_cfg.strategy_type == "BOLLINGER_MR":
+        strategy = BollingerMeanReversionStrategy(config=run_cfg.strategy_config)
     else:
         raise ValueError(f"Tipo de estrategia no soportado: {run_cfg.strategy_type}")
 

@@ -22,6 +22,14 @@ from strategies.squeeze_momentum_strategy import (
     SqueezeMomentumStrategy,
     SqueezeMomentumConfig,
 )
+from strategies.supertrend_strategy import (
+    SupertrendStrategy,
+    SupertrendStrategyConfig,
+)
+from strategies.bollinger_mean_reversion import (
+    BollingerMeanReversionStrategy,
+    BollingerMeanReversionStrategyConfig,
+)
 
 # Mapa: tipo_de_estrategia -> (ClaseEstrategia, ClaseConfig)
 # Los strings deben coincidir con los strategy_type que usas en config/settings.py
@@ -31,6 +39,8 @@ STRATEGY_REGISTRY: Dict[str, Tuple[Type[BaseStrategy], Type]] = {
     "KELTNER": (KeltnerBreakoutStrategy, KeltnerBreakoutStrategyConfig),
     "BB_TREND": (BBTrendStrategy, BBTrendStrategyConfig),
     "SQUEEZE": (SqueezeMomentumStrategy, SqueezeMomentumConfig),
+    "SUPERTREND": (SupertrendStrategy, SupertrendStrategyConfig),
+    "BOLLINGER_MR": (BollingerMeanReversionStrategy, BollingerMeanReversionStrategyConfig),
 }
 
 
