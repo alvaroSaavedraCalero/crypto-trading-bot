@@ -23,8 +23,5 @@ __pycache__/
 # Archivos de logs
 *.log
 
-# Datos descargados (si NO quieres subirlos)
-data/*.csv
-
-# Resultados de optimización
-opt_*.csv
+# Archivos CSV (datos y resultados)
+*.csv

@@ -6,6 +6,7 @@ from backtesting.engine import BacktestConfig
 
 from strategies.macd_adx_trend_strategy import MACDADXTrendStrategyConfig
 from strategies.supertrend_strategy import SupertrendStrategyConfig
+from strategies.keltner_breakout_strategy import KeltnerBreakoutStrategyConfig
 from strategies.bollinger_mean_reversion import BollingerMeanReversionStrategyConfig
 
 from utils.risk import RiskManagementConfig
@@ -98,11 +99,11 @@ MACD_ADX_ETH15M_RUN = StrategyRunConfig(
 # ==========================
 
 SUPERTREND_BTC15M_CONFIG = SupertrendStrategyConfig(
-    atr_period=10,
-    atr_multiplier=3.0,
+    atr_period=20,
+    atr_multiplier=4.0,
     use_adx_filter=True,
     adx_period=14,
-    adx_threshold=20.0,
+    adx_threshold=25.0,
 )
 
 SUPERTREND_BTC15M_BT_CONFIG = BacktestConfig(
@@ -128,30 +129,37 @@ SUPERTREND_BTC15M_RUN = StrategyRunConfig(
 # Estrategia 3: Bollinger Mean Reversion (BNB/USDT 15m)
 # ==========================
 
-BOLLINGER_BNB15M_CONFIG = BollingerMeanReversionStrategyConfig(
-    bb_window=40,
-    bb_std=2.5,
-    rsi_window=14,
-    rsi_oversold=30.0,
-    rsi_overbought=75.0,
+# Keltner Breakout (SOL/USDT 15m) - Optimized
+KELTNER_SOL15M_CONFIG = KeltnerBreakoutStrategyConfig(
+    kc_window=30,
+    kc_mult=2.5,
+    atr_window=20,
+    atr_min_percentile=0.4,
+    use_trend_filter=False,
+    trend_ema_window=100,
+    allow_short=True,
+    side_mode="both",
 )
 
-BOLLINGER_BNB15M_BT_CONFIG = BacktestConfig(
+KELTNER_SOL15M_BT_CONFIG = BacktestConfig(
     initial_capital=1000.0,
-    sl_pct=0.015,    # 1.5% SL
-    tp_rr=1.5,       # TP 1:1.5
+    sl_pct=0.0075,   # 0.75% SL
+    tp_rr=2.0,       # TP 1:2
     fee_pct=0.0005,
     allow_short=True,
+    atr_window=None,
+    atr_mult_sl=None,
+    atr_mult_tp=None,
 )
 
-BOLLINGER_BNB15M_RUN = StrategyRunConfig(
-    name="BOLLINGER_MR_OPT_BNBUSDT_15m",
-    symbol="BNB/USDT",
+KELTNER_SOL15M_RUN = StrategyRunConfig(
+    name="KELTNER_BREAKOUT_OPT_SOLUSDT_15m",
+    symbol="SOL/USDT",
     timeframe="15m",
     limit_candles=DEFAULT_LIMIT_CANDLES,
-    strategy_type="BOLLINGER_MR",
-    strategy_config=BOLLINGER_BNB15M_CONFIG,
-    backtest_config=BOLLINGER_BNB15M_BT_CONFIG,
+    strategy_type="KELTNER",
+    strategy_config=KELTNER_SOL15M_CONFIG,
+    backtest_config=KELTNER_SOL15M_BT_CONFIG,
 )
 
 
@@ -163,5 +171,5 @@ BOLLINGER_BNB15M_RUN = StrategyRunConfig(
 OPTIMIZED_STRATEGIES = [
     MACD_ADX_ETH15M_RUN,
     SUPERTREND_BTC15M_RUN,
-    BOLLINGER_BNB15M_RUN,
+    KELTNER_SOL15M_RUN,
 ]
