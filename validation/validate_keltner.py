@@ -1,23 +1,22 @@
-
 import pandas as pd
 
 from backtesting.engine import BacktestConfig, Backtester
 from config.settings import RISK_CONFIG
 from data.downloader import get_datos_cripto_cached
-from strategies.bollinger_mean_reversion import (
-    BollingerMeanReversionStrategy,
-    BollingerMeanReversionStrategyConfig,
+from strategies.keltner_breakout_strategy import (
+    KeltnerBreakoutStrategy,
+    KeltnerBreakoutStrategyConfig,
 )
 
 
-def run_bollinger_on_market(
+def run_keltner_on_market(
     symbol: str,
     timeframe: str,
     limit: int,
-    cfg: BollingerMeanReversionStrategyConfig,
+    cfg: KeltnerBreakoutStrategyConfig,
     bt_cfg: BacktestConfig,
 ):
-    print(f"\n=== BOLLINGER_MR en {symbol} {timeframe} (limit={limit}) ===")
+    print(f"\n=== KELTNER en {symbol} {timeframe} (limit={limit}) ===")
 
     df = get_datos_cripto_cached(
         symbol=symbol,
@@ -27,7 +26,7 @@ def run_bollinger_on_market(
     )
     print(f"Filas obtenidas: {len(df)}")
 
-    strategy = BollingerMeanReversionStrategy(config=cfg)
+    strategy = KeltnerBreakoutStrategy(config=cfg)
     df_signals = strategy.generate_signals(df)
 
     bt = Backtester(
@@ -54,43 +53,47 @@ def run_bollinger_on_market(
 
 
 def main():
-    # Valores óptimos obtenidos de optimization/optimize_bollinger.py
-    bollinger_cfg = BollingerMeanReversionStrategyConfig(
-        bb_window=20,
-        bb_std=2.0,
-        rsi_window=14,
-        rsi_oversold=25.0,
-        rsi_overbought=65.0,
+    # Valores óptimos obtenidos de opt_keltner_SOLUSDT_15m.csv
+    keltner_cfg = KeltnerBreakoutStrategyConfig(
+        kc_window=30,
+        kc_mult=2.5,
+        atr_window=20,
+        atr_min_percentile=0.4,
+        use_trend_filter=False,
+        trend_ema_window=100,
+        allow_short=True,
+        side_mode="both",
     )
 
     bt_cfg = BacktestConfig(
         initial_capital=1000.0,
-        sl_pct=0.015,    # 1.5% SL
-        tp_rr=1.5,       # TP 1:1.5
+        sl_pct=0.0075,   # 0.75% SL
+        tp_rr=2.0,       # TP 1:2
         fee_pct=0.0005,
         allow_short=True,
     )
 
     markets = [
-        ("BNB/USDT", "15m", 10000),
+        ("SOL/USDT", "15m", 10000),
         ("BTC/USDT", "15m", 10000),
         ("ETH/USDT", "15m", 10000),
-        ("SOL/USDT", "15m", 10000),
+        ("BNB/USDT", "15m", 10000),
         ("XRP/USDT", "15m", 10000),
+        ("SOL/USDT", "1h",  5000),
     ]
 
     rows = []
     for symbol, timeframe, limit in markets:
-        row = run_bollinger_on_market(
+        row = run_keltner_on_market(
             symbol=symbol,
             timeframe=timeframe,
             limit=limit,
-            cfg=bollinger_cfg,
+            cfg=keltner_cfg,
             bt_cfg=bt_cfg,
         )
         rows.append(row)
 
-    print("\n===== RESUMEN VALIDACIÓN CRUZADA BOLLINGER_MR =====")
+    print("\n===== RESUMEN VALIDACIÓN CRUZADA KELTNER =====")
     df_summary = pd.DataFrame(rows)
     df_summary = df_summary.sort_values(
         by="total_return_pct", ascending=False

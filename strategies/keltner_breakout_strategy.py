@@ -12,15 +12,15 @@ import pandas as pd
 @dataclass
 class KeltnerBreakoutStrategyConfig:
     # Canal Keltner
-    kc_window: int = 20          # periodo de la media
-    kc_mult: float = 1.5         # multiplicador de ATR para las bandas
+    kc_window: int = 30          # periodo de la media
+    kc_mult: float = 2.5         # multiplicador de ATR para las bandas
 
     # ATR para volatilidad y canal
-    atr_window: int = 14
-    atr_min_percentile: float = 0.2  # filtra velas con muy baja volatilidad (0–1)
+    atr_window: int = 20
+    atr_min_percentile: float = 0.4  # filtra velas con muy baja volatilidad (0–1)
 
     # Filtro de tendencia
-    use_trend_filter: bool = True
+    use_trend_filter: bool = False
     trend_ema_window: int = 100
 
     # Dirección

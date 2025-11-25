@@ -165,8 +165,8 @@ KELTNER_SOL15M_CONFIG = KeltnerBreakoutStrategyConfig(
     kc_mult=2.5,
     atr_window=20,
     atr_min_percentile=0.4,
-    use_trend_filter=True,
-    trend_ema_window=150,
+    use_trend_filter=False,
+    trend_ema_window=100,
     allow_short=True,
     side_mode="both",
 )
@@ -174,7 +174,7 @@ KELTNER_SOL15M_CONFIG = KeltnerBreakoutStrategyConfig(
 KELTNER_SOL15M_BT_CONFIG = BacktestConfig(
     initial_capital=1000.0,
     sl_pct=0.0075,   # 0.75% SL
-    tp_rr=1.5,       # TP 1:1.5
+    tp_rr=2.0,       # TP 1:2
     fee_pct=0.0005,
     allow_short=True,
     atr_window=None,
@@ -198,17 +198,17 @@ KELTNER_SOL15M_RUN = StrategyRunConfig(
 # ==========================
 
 BOLLINGER_MR_BNB15M_CONFIG = BollingerMeanReversionStrategyConfig(
-    bb_window=30,
+    bb_window=20,
     bb_std=2.0,
     rsi_window=14,
-    rsi_oversold=30.0,
+    rsi_oversold=25.0,
     rsi_overbought=65.0,
 )
 
 BOLLINGER_MR_BNB15M_BT_CONFIG = BacktestConfig(
     initial_capital=1000.0,
-    sl_pct=0.02,   # 2% SL
-    tp_rr=1.0,      # TP 1:1
+    sl_pct=0.015,   # 1.5% SL (mejor fila)
+    tp_rr=1.5,      # TP 1:1.5
     fee_pct=0.0005,
     allow_short=True,
 )
