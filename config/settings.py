@@ -11,8 +11,25 @@ from strategies.keltner_breakout_strategy import KeltnerBreakoutStrategyConfig
 from strategies.bollinger_mean_reversion import BollingerMeanReversionStrategyConfig
 from strategies.squeeze_momentum_strategy import SqueezeMomentumConfig
 from strategies.archived.bb_trend_strategy import BBTrendStrategyConfig
+from strategies.smart_money_strategy import SmartMoneyStrategyConfig
+from strategies.ict_strategy import ICTStrategyConfig
 
 from utils.risk import RiskManagementConfig
+
+# ==========================
+# Market Type Configuration
+# ==========================
+
+class MarketType:
+    CRYPTO = "CRYPTO"
+    FOREX = "FOREX"
+
+# Seleccionar tipo de mercado
+MARKET_TYPE = MarketType.CRYPTO  # Cambiar a MarketType.FOREX para operar Forex
+
+# Forex-specific settings
+FOREX_SPREAD_PCT = 0.0002  # 0.02% spread típico para majors
+FOREX_COMMISSION_PER_LOT = 0.0  # Comisión por lote (si aplica)
 
 
 # ==========================
@@ -292,6 +309,68 @@ BB_TREND_XRP15M_RUN = StrategyRunConfig(
 
 
 # ==========================
+# Estrategia 8: Smart Money (BTC/USDT 15m)
+# ==========================
+
+SMART_MONEY_BTC15M_CONFIG = SmartMoneyStrategyConfig(
+    fvg_min_size_pct=0.05,
+    trend_ema_window=200,
+    allow_short=True,
+    use_fvg=True,
+    use_ob=False,
+)
+
+SMART_MONEY_BTC15M_BT_CONFIG = BacktestConfig(
+    initial_capital=1000.0,
+    sl_pct=0.02,     # 2% SL
+    tp_rr=2.0,       # TP 1:2
+    fee_pct=0.0005,
+    allow_short=True,
+)
+
+SMART_MONEY_BTC15M_RUN = StrategyRunConfig(
+    name="SMART_MONEY_OPT_BTCUSDT_15m",
+    symbol="BTC/USDT",
+    timeframe="15m",
+    limit_candles=DEFAULT_LIMIT_CANDLES,
+    strategy_type="SMART_MONEY",
+    strategy_config=SMART_MONEY_BTC15M_CONFIG,
+    backtest_config=SMART_MONEY_BTC15M_BT_CONFIG,
+)
+
+
+# ==========================
+# Estrategia 9: ICT (BTC/USDT 15m)
+# ==========================
+
+ICT_BTC15M_CONFIG = ICTStrategyConfig(
+    kill_zone_start_hour=7,
+    kill_zone_end_hour=10,
+    swing_length=5,
+    fvg_min_size_pct=0.05,
+    allow_short=True,
+)
+
+ICT_BTC15M_BT_CONFIG = BacktestConfig(
+    initial_capital=1000.0,
+    sl_pct=0.02,     # 2% SL
+    tp_rr=4.0,       # TP 1:4
+    fee_pct=0.0005,
+    allow_short=True,
+)
+
+ICT_BTC15M_RUN = StrategyRunConfig(
+    name="ICT_OPT_BTCUSDT_15m",
+    symbol="BTC/USDT",
+    timeframe="15m",
+    limit_candles=DEFAULT_LIMIT_CANDLES,
+    strategy_type="ICT",
+    strategy_config=ICT_BTC15M_CONFIG,
+    backtest_config=ICT_BTC15M_BT_CONFIG,
+)
+
+
+# ==========================
 # Registro de estrategias optimizadas
 # (usado por backtest_strategies.py)
 # ==========================
@@ -304,4 +383,96 @@ OPTIMIZED_STRATEGIES = [
     BOLLINGER_MR_BNB15M_RUN,
     SQUEEZE_BNB15M_RUN,
     BB_TREND_XRP15M_RUN,
+    SMART_MONEY_BTC15M_RUN,
+    ICT_BTC15M_RUN,
+]
+
+
+# ==========================
+# Forex Strategy Configurations
+# ==========================
+
+# EUR/USD - Supertrend Strategy
+SUPERTREND_EURUSD15M_CONFIG = SupertrendStrategyConfig(
+    atr_period=10,
+    atr_multiplier=3.0,
+)
+
+SUPERTREND_EURUSD15M_BT_CONFIG = BacktestConfig(
+    initial_capital=10000.0,
+    sl_pct=0.01,
+    tp_rr=2.0,
+    fee_pct=FOREX_SPREAD_PCT,  # Spread como comisión
+    allow_short=True,
+)
+
+SUPERTREND_EURUSD15M_RUN = StrategyRunConfig(
+    name="SUPERTREND_EURUSD_15m",
+    symbol="EURUSD",
+    timeframe="15m",
+    limit_candles=DEFAULT_LIMIT_CANDLES,
+    strategy_type="SUPERTREND",
+    strategy_config=SUPERTREND_EURUSD15M_CONFIG,
+    backtest_config=SUPERTREND_EURUSD15M_BT_CONFIG,
+)
+
+# GBP/USD - ICT Strategy
+ICT_GBPUSD15M_CONFIG = ICTStrategyConfig(
+    kill_zone_start_hour=7,
+    kill_zone_end_hour=10,
+    swing_length=5,
+    fvg_min_size_pct=0.05,
+    allow_short=True,
+)
+
+ICT_GBPUSD15M_BT_CONFIG = BacktestConfig(
+    initial_capital=10000.0,
+    sl_pct=0.015,
+    tp_rr=3.0,
+    fee_pct=FOREX_SPREAD_PCT,
+    allow_short=True,
+)
+
+ICT_GBPUSD15M_RUN = StrategyRunConfig(
+    name="ICT_GBPUSD_15m",
+    symbol="GBPUSD",
+    timeframe="15m",
+    limit_candles=DEFAULT_LIMIT_CANDLES,
+    strategy_type="ICT",
+    strategy_config=ICT_GBPUSD15M_CONFIG,
+    backtest_config=ICT_GBPUSD15M_BT_CONFIG,
+)
+
+# XAU/USD (Gold) - Smart Money Strategy
+SMART_MONEY_XAUUSD15M_CONFIG = SmartMoneyStrategyConfig(
+    fvg_min_size_pct=0.1,
+    trend_ema_window=200,
+    allow_short=True,
+    use_fvg=True,
+    use_ob=False,
+)
+
+SMART_MONEY_XAUUSD15M_BT_CONFIG = BacktestConfig(
+    initial_capital=10000.0,
+    sl_pct=0.02,
+    tp_rr=2.5,
+    fee_pct=FOREX_SPREAD_PCT * 2,  # Gold tiene spread mayor
+    allow_short=True,
+)
+
+SMART_MONEY_XAUUSD15M_RUN = StrategyRunConfig(
+    name="SMART_MONEY_XAUUSD_15m",
+    symbol="XAUUSD",
+    timeframe="15m",
+    limit_candles=DEFAULT_LIMIT_CANDLES,
+    strategy_type="SMART_MONEY",
+    strategy_config=SMART_MONEY_XAUUSD15M_CONFIG,
+    backtest_config=SMART_MONEY_XAUUSD15M_BT_CONFIG,
+)
+
+# Lista de estrategias Forex
+FOREX_STRATEGIES = [
+    SUPERTREND_EURUSD15M_RUN,
+    ICT_GBPUSD15M_RUN,
+    SMART_MONEY_XAUUSD15M_RUN,
 ]

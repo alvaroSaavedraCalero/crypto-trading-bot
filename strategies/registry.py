@@ -30,6 +30,14 @@ from strategies.bollinger_mean_reversion import (
     BollingerMeanReversionStrategy,
     BollingerMeanReversionStrategyConfig,
 )
+from strategies.smart_money_strategy import (
+    SmartMoneyStrategy,
+    SmartMoneyStrategyConfig,
+)
+from strategies.ict_strategy import (
+    ICTStrategy,
+    ICTStrategyConfig,
+)
 
 # Mapa: tipo_de_estrategia -> (ClaseEstrategia, ClaseConfig)
 # Los strings deben coincidir con los strategy_type que usas en config/settings.py
@@ -41,6 +49,8 @@ STRATEGY_REGISTRY: Dict[str, Tuple[Type[BaseStrategy], Type]] = {
     "SQUEEZE": (SqueezeMomentumStrategy, SqueezeMomentumConfig),
     "SUPERTREND": (SupertrendStrategy, SupertrendStrategyConfig),
     "BOLLINGER_MR": (BollingerMeanReversionStrategy, BollingerMeanReversionStrategyConfig),
+    "SMART_MONEY": (SmartMoneyStrategy, SmartMoneyStrategyConfig),
+    "ICT": (ICTStrategy, ICTStrategyConfig),
 }
 
 

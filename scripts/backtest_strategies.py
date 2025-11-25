@@ -8,7 +8,7 @@ from config.settings import (
 )
 from data.downloader import get_datos_cripto_cached
 from backtesting.engine import Backtester
-from reporting.summary import print_backtest_summary
+from reporting.summary import print_backtest_summary, save_equity_plot
 from strategies.registry import create_strategy
 
 
@@ -41,6 +41,9 @@ def run_single_strategy(run_cfg):
     result = backtester.run(df_signals)
 
     print_backtest_summary(result)
+    
+    # Generar gráfico de equity curve
+    save_equity_plot(result, title=f"{run_cfg.name}")
 
     return {
         "strategy": run_cfg.name,

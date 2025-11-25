@@ -79,7 +79,18 @@ def run_paper_for_config(run_cfg):
 
 def main():
     rows = []
+    # Estrategias con Profit Factor > 1.1 según backtest 2025
+    ACCEPTED_STRATEGIES = {
+        "SUPERTREND_OPT_BTCUSDT_15m",
+        "MACD_ADX_TREND_OPT_BTCUSDT_15m",
+        "MA_RSI_OPT_BTCUSDT_15m",
+    }
+
+    rows = []
     for run_cfg in OPTIMIZED_STRATEGIES:
+        if run_cfg.name not in ACCEPTED_STRATEGIES:
+            continue
+            
         row = run_paper_for_config(run_cfg)
         rows.append(row)
 
