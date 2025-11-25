@@ -12,8 +12,8 @@ import pandas as pd
 @dataclass
 class MACDADXTrendStrategyConfig:
     # MACD
-    fast_ema: int = 12
-    slow_ema: int = 26
+    fast_ema: int = 8
+    slow_ema: int = 24
     signal_ema: int = 9
 
     # Filtro de tendencia

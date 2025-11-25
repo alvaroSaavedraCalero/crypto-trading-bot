@@ -1,11 +1,9 @@
-# optimize_macd_adx_eth.py
 
 from dataclasses import replace
 from itertools import product
 from multiprocessing import Pool, cpu_count
 from typing import Iterable
 import random
-
 import pandas as pd
 
 from config.settings import BACKTEST_CONFIG, RISK_CONFIG
@@ -167,9 +165,10 @@ def _build_param_grid(
 
 
 def main():
-    symbol = "ETH/USDT"
+    # Configuración principal
+    symbol = "BTC/USDT"  # Puedes cambiar a ETH/USDT, SOL/USDT, etc.
     timeframe = "15m"
-    limit = 5000
+    limit = 10000        # Cantidad de velas para backtest
 
     print(f"Obteniendo datos de {symbol} en timeframe {timeframe}...")
     df = get_datos_cripto_cached(
@@ -183,21 +182,21 @@ def main():
     # ==============================
     # Espacio de parámetros
     # ==============================
-    fast_emas = [8, 10, 12]
-    slow_emas = [20, 24, 26]
-    signal_emas = [6, 9]
+    fast_emas = [8, 10, 12, 15]
+    slow_emas = [20, 24, 26, 30]
+    signal_emas = [9]
 
-    trend_ema_windows = [100, 150, 200, 250]
-    adx_windows = [14]  # mantenemos 14 fijo por ahora
-    adx_thresholds = [15.0, 20.0, 25.0, 30.0]
+    trend_ema_windows = [100, 200]
+    adx_windows = [14]
+    adx_thresholds = [20.0, 25.0, 30.0]
 
-    allow_shorts = [False, True]
+    allow_shorts = [True, False]
 
-    sl_pcts = [0.005, 0.0075, 0.01]  # 0.5%, 0.75%, 1.0%
+    sl_pcts = [0.01, 0.015, 0.02]
     tp_rrs = [1.5, 2.0, 2.5]
 
     # requerimos mínimo de trades para que tenga sentido
-    min_trades = 30
+    min_trades = 20
 
     param_grid = _build_param_grid(
         fast_emas=fast_emas,
@@ -218,7 +217,7 @@ def main():
     # ==============================
     # Límite máximo de combinaciones
     # ==============================
-    MAX_COMBOS = 2000  # ajustable
+    MAX_COMBOS = 2000  # Ajustable según potencia de CPU
 
     if total_full > MAX_COMBOS:
         print(f"Reduciendo combinaciones mediante muestreo aleatorio a {MAX_COMBOS}...")
@@ -270,10 +269,12 @@ def main():
     ).reset_index(drop=True)
 
     top_n = 20
-    print(f"\nTop {top_n} MACD+ADX+Trend ETH/USDT {timeframe}:")
+    print(f"\nTop {top_n} MACD+ADX+Trend {symbol} {timeframe}:")
     print(df_results.head(top_n))
 
-    out_path = f"opt_macd_adx_ETHUSDT_{timeframe}.csv"
+    # Guardar resultados
+    safe_symbol = symbol.replace("/", "")
+    out_path = f"opt_macd_adx_{safe_symbol}_{timeframe}.csv"
     df_results.to_csv(out_path, index=False)
     print(f"\nResultados guardados en {out_path}")
 

@@ -92,38 +92,38 @@ MA_RSI_BTC15M_RUN = StrategyRunConfig(
     backtest_config=MA_RSI_BTC15M_BT_CONFIG,
 )
 # ==========================
-# Estrategia 2: MACD+ADX+Trend (ETH/USDT 15m)
+# Estrategia 2: MACD+ADX+Trend (BTC/USDT 15m)
 # ==========================
 
-MACD_ADX_ETH15M_CONFIG = MACDADXTrendStrategyConfig(
-    fast_ema=12,
-    slow_ema=20,
-    signal_ema=6,
-    trend_ema_window=100,
+MACD_ADX_BTC15M_CONFIG = MACDADXTrendStrategyConfig(
+    fast_ema=8,
+    slow_ema=24,
+    signal_ema=9,
+    trend_ema_window=200,
     adx_window=14,
     adx_threshold=20.0,
-    allow_short=False,
+    allow_short=True,
 )
 
-MACD_ADX_ETH15M_BT_CONFIG = BacktestConfig(
+MACD_ADX_BTC15M_BT_CONFIG = BacktestConfig(
     initial_capital=1000.0,
-    sl_pct=0.01,     # 1% SL
+    sl_pct=0.015,    # 1.5% SL
     tp_rr=2.5,       # TP 1:2.5
     fee_pct=0.0005,
-    allow_short=False,
+    allow_short=True,
     atr_window=None,
     atr_mult_sl=None,
     atr_mult_tp=None,
 )
 
-MACD_ADX_ETH15M_RUN = StrategyRunConfig(
-    name="MACD_ADX_TREND_OPT_ETHUSDT_15m",
-    symbol="ETH/USDT",
+MACD_ADX_BTC15M_RUN = StrategyRunConfig(
+    name="MACD_ADX_TREND_OPT_BTCUSDT_15m",
+    symbol="BTC/USDT",
     timeframe="15m",
     limit_candles=DEFAULT_LIMIT_CANDLES,
     strategy_type="MACD_ADX",
-    strategy_config=MACD_ADX_ETH15M_CONFIG,
-    backtest_config=MACD_ADX_ETH15M_BT_CONFIG,
+    strategy_config=MACD_ADX_BTC15M_CONFIG,
+    backtest_config=MACD_ADX_BTC15M_BT_CONFIG,
 )
 # ==========================
 # Estrategia 3: Supertrend (BTC/USDT 15m)
@@ -298,7 +298,7 @@ BB_TREND_XRP15M_RUN = StrategyRunConfig(
 
 OPTIMIZED_STRATEGIES = [
     MA_RSI_BTC15M_RUN,
-    MACD_ADX_ETH15M_RUN,
+    MACD_ADX_BTC15M_RUN,
     SUPERTREND_BTC15M_RUN,
     KELTNER_SOL15M_RUN,
     BOLLINGER_MR_BNB15M_RUN,
