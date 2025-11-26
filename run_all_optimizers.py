@@ -22,27 +22,30 @@ OPTIMIZERS = [
 
 def run_optimizer(script_path: str) -> bool:
     """
-    Run a single optimizer script.
+    Run a single optimizer script as a module.
     Returns True if successful, False otherwise.
     """
+    # Convert path to module name (e.g., optimization/optimize_bollinger.py -> optimization.optimize_bollinger)
+    module_name = script_path.replace("/", ".").replace(".py", "")
+    
     print(f"\n{'='*80}")
-    print(f"Running: {script_path}")
+    print(f"Running: {module_name}")
     print(f"{'='*80}\n")
     
     try:
         result = subprocess.run(
-            [sys.executable, script_path],
+            [sys.executable, "-m", module_name],
             check=True,
             capture_output=False,  # Show output in real-time
             text=True
         )
-        print(f"\n✓ {script_path} completed successfully")
+        print(f"\n✓ {module_name} completed successfully")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"\n✗ {script_path} failed with exit code {e.returncode}")
+        print(f"\n✗ {module_name} failed with exit code {e.returncode}")
         return False
     except Exception as e:
-        print(f"\n✗ {script_path} failed with error: {e}")
+        print(f"\n✗ {module_name} failed with error: {e}")
         return False
 
 def main():
