@@ -1,9 +1,7 @@
 
 from dataclasses import replace
 from itertools import product
-from multiprocessing import Pool, cpu_count
 from typing import Iterable
-import random
 import pandas as pd
 
 from config.settings import BACKTEST_CONFIG, RISK_CONFIG
@@ -13,21 +11,11 @@ from strategies.ict_strategy import (
     ICTStrategy,
     ICTStrategyConfig,
 )
-
-# DataFrame global para los workers
-_GLOBAL_DF: pd.DataFrame | None = None
-
-
-def _init_worker(df: pd.DataFrame) -> None:
-    global _GLOBAL_DF
-    _GLOBAL_DF = df
+from optimization.base_optimizer import run_optimization, get_global_df, save_results
 
 
 def _evaluate_config(args: tuple) -> dict | None:
-    global _GLOBAL_DF
-    df = _GLOBAL_DF
-    if df is None:
-        raise RuntimeError("GLOBAL DF no inicializado en worker.")
+    df = get_global_df()
 
     (
         kill_zone_start,
@@ -151,9 +139,6 @@ def main():
     # ==============================
     
     # Kill Zones (UTC)
-    # London Open: ~07:00 - 10:00 UTC
-    # NY Open: ~12:00 - 15:00 UTC
-    # Asia: ~00:00 - 04:00 UTC
     kill_zones = [
         (7, 10),   # London
         (12, 15),  # NY
@@ -183,52 +168,19 @@ def main():
         min_trades=MIN_TRADES,
     )
 
-    total_full = len(param_grid)
-    print(f"Combinaciones totales generadas: {total_full}")
+    results = run_optimization(
+        evaluator_func=_evaluate_config,
+        param_grid=param_grid,
+        df=df,
+        max_combos=MAX_COMBOS_OPT,
+    )
 
-    MAX_COMBOS = 2000
-    if total_full > MAX_COMBOS:
-        print(f"Reduciendo a {MAX_COMBOS}...")
-        random.seed(42)
-        param_grid = random.sample(param_grid, MAX_COMBOS)
-
-    total_combos = len(param_grid)
-    n_procs = max(1, cpu_count() - 1)
-    print(f"Usando {n_procs} procesos.")
-
-    rows: list[dict] = []
-    progress_step = max(1, total_combos // 20)
-
-    with Pool(processes=n_procs, initializer=_init_worker, initargs=(df,)) as pool:
-        for idx, res in enumerate(
-            pool.imap_unordered(_evaluate_config, param_grid, chunksize=10),
-            start=1,
-        ):
-            if res is not None:
-                rows.append(res)
-
-            if idx % progress_step == 0 or idx == total_combos:
-                pct = idx / total_combos * 100.0
-                print(f"Progreso: {idx}/{total_combos} ({pct:.1f}%) - validos: {len(rows)}", flush=True)
-
-    if not rows:
-        print("ICT: sin resultados.")
-        return
-
-    df_results = pd.DataFrame(rows)
-    df_results = df_results.sort_values(
-        by=["total_return_pct", "profit_factor", "max_drawdown_pct"],
-        ascending=[False, False, True],
-    ).reset_index(drop=True)
-
-    top_n = 20
-    print(f"\nTop {top_n} ICT {SYMBOL} {TIMEFRAME}:")
-    print(df_results.head(top_n))
-
-    safe_symbol = SYMBOL.replace("/", "")
-    out_path = f"opt_ict_{safe_symbol}_{TIMEFRAME}.csv"
-    df_results.to_csv(out_path, index=False)
-    print(f"\nResultados guardados en {out_path}")
+    save_results(
+        results=results,
+        symbol=SYMBOL,
+        timeframe=TIMEFRAME,
+        strategy_name="ICT",
+    )
 
 
 if __name__ == "__main__":
