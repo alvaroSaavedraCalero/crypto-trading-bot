@@ -68,7 +68,22 @@ def run_backtest_flow():
         choices=["1m", "5m", "15m", "1h", "4h", "1d"]
     ).ask()
     
-    days_back = int(questionary.text("Days to backtest:", default="30").ask())
+    def validate_days(text):
+        try:
+            val = int(text)
+            if val <= 0:
+                return "Please enter a positive number."
+            if val > 15000:
+                return "Value too large. Max is 15000 days (approx 40 years)."
+            return True
+        except ValueError:
+            return "Please enter a valid integer."
+
+    days_back = int(questionary.text(
+        "Days to backtest:", 
+        default="30",
+        validate=validate_days
+    ).ask())
     
     # 3. Account
     initial_capital = float(questionary.text("Initial Capital:", default="10000").ask())
