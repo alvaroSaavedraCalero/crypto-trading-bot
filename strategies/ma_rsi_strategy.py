@@ -9,6 +9,12 @@ import ta
 
 from strategies.base import BaseStrategy
 from .base import BaseStrategy, StrategyMetadata
+from utils.validation import (
+    ValidationError,
+    validate_window_size,
+    validate_rsi_levels,
+    validate_ma_windows,
+)
 
 
 SignalMode = Literal["cross", "trend"]
@@ -16,6 +22,20 @@ SignalMode = Literal["cross", "trend"]
 
 @dataclass
 class MovingAverageRSIStrategyConfig:
+    """
+    Configuración para la estrategia de Media Móvil con RSI.
+
+    Attributes:
+        fast_window: Período de la media móvil rápida (1-500).
+        slow_window: Período de la media móvil lenta (debe ser > fast_window).
+        rsi_window: Período para el cálculo del RSI (1-100).
+        rsi_overbought: Nivel de sobrecompra del RSI (50-100).
+        rsi_oversold: Nivel de sobreventa del RSI (0-50).
+        use_rsi_filter: Si True, filtra señales usando RSI.
+        signal_mode: Modo de señal - "cross" para cruces, "trend" para tendencia continua.
+        use_trend_filter: Si True, filtra señales usando MA de tendencia.
+        trend_ma_window: Período de la MA de tendencia larga.
+    """
     fast_window: int = 10
     slow_window: int = 20
     rsi_window: int = 14
@@ -27,6 +47,30 @@ class MovingAverageRSIStrategyConfig:
     # NUEVOS campos de filtro de tendencia
     use_trend_filter: bool = False
     trend_ma_window: int = 200  # MA larga para definir tendencia
+
+    def __post_init__(self) -> None:
+        """Valida los parámetros de configuración."""
+        # Validar ventanas de MA
+        validate_ma_windows(self.fast_window, self.slow_window)
+
+        # Validar ventana RSI
+        validate_window_size(self.rsi_window, "rsi_window", min_window=2, max_window=100)
+
+        # Validar niveles RSI
+        validate_rsi_levels(self.rsi_oversold, self.rsi_overbought)
+
+        # Validar ventana de tendencia
+        if self.use_trend_filter:
+            validate_window_size(
+                self.trend_ma_window, "trend_ma_window",
+                min_window=self.slow_window + 1, max_window=1000
+            )
+
+        # Validar signal_mode
+        if self.signal_mode not in ("cross", "trend"):
+            raise ValidationError(
+                f"signal_mode debe ser 'cross' o 'trend', valor actual: {self.signal_mode}"
+            )
 
 
 class MovingAverageRSIStrategy(BaseStrategy[MovingAverageRSIStrategyConfig]):

@@ -10,6 +10,10 @@ import pandas as pd
 from backtesting.engine import BacktestConfig, compute_sl_tp
 from execution.models import AccountState, Position, Side, TradeLogEntry
 from utils.risk import RiskManagementConfig, calculate_position_size_spot
+from utils.logger import get_logger, TradeLogger
+
+logger = get_logger(__name__)
+trade_logger = TradeLogger()
 
 
 class PaperBroker:
@@ -120,6 +124,15 @@ class PaperBroker:
             winrate_pct = 0.0
             profit_factor = 0.0
 
+        # Log summary using logger
+        logger.info("===== RESUMEN PAPER TRADING =====")
+        logger.info(f"Número de trades: {num_trades}")
+        logger.info(f"Retorno total: {total_return_pct:.2f} %")
+        logger.info(f"Max drawdown: {max_drawdown_pct:.2f} %")
+        logger.info(f"Winrate: {winrate_pct:.2f} %")
+        logger.info(f"Profit factor: {profit_factor:.2f}")
+
+        # Also print to console for interactive use
         print("\n===== RESUMEN PAPER TRADING =====")
         print(f"Número de trades: {num_trades}")
         print(f"Retorno total: {total_return_pct:.2f} %")
@@ -207,6 +220,17 @@ class PaperBroker:
         self.state.history.append(trade_log)
         self.state.open_positions.pop(self.symbol, None)
 
+        # Log the trade closure
+        trade_logger.trade_closed(
+            symbol=self.symbol,
+            direction=pos.side.value,
+            entry_price=pos.entry_price,
+            exit_price=exit_price,
+            pnl=pnl_after_fees,
+            pnl_pct=pnl_pct,
+            reason=reason,
+        )
+
     def _maybe_open_position(
         self,
         ts: pd.Timestamp,
@@ -286,3 +310,13 @@ class PaperBroker:
             tp_price=tp_price_eff,
         )
         self.state.open_positions[self.symbol] = pos
+
+        # Log the trade opening
+        trade_logger.trade_opened(
+            symbol=self.symbol,
+            direction=side_str,
+            entry_price=entry_price,
+            size=size,
+            sl_price=sl_price_eff,
+            tp_price=tp_price_eff,
+        )

@@ -7,20 +7,58 @@ import numpy as np
 import pandas as pd
 
 from utils.risk import RiskManagementConfig, calculate_position_size_spot
+from utils.validation import validate_non_negative, validate_range, validate_positive
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass
 class BacktestConfig:
+    """
+    Configuración para el motor de backtesting.
+
+    Attributes:
+        initial_capital: Capital inicial para el backtest.
+        sl_pct: Porcentaje de stop loss fijo (0.01 = 1%).
+        tp_rr: Ratio de take profit respecto al stop loss.
+        fee_pct: Porcentaje de comisión por operación.
+        allow_short: Si True, permite operaciones en corto.
+        slippage_pct: Porcentaje de slippage a aplicar (0.001 = 0.1%).
+        atr_window: Ventana para ATR (si se usa ATR dinámico).
+        atr_mult_sl: Multiplicador de ATR para stop loss.
+        atr_mult_tp: Multiplicador de ATR para take profit.
+    """
     initial_capital: float
     sl_pct: Optional[float] = 0.01      # stop loss fijo (puede ser None)
     tp_rr: Optional[float] = 2.0        # ratio TP:SL (solo si sl_pct no es None)
     fee_pct: float = 0.0005
     allow_short: bool = True
 
+    # Slippage - simula el deslizamiento de precio en ejecución real
+    slippage_pct: float = 0.0  # 0.001 = 0.1% slippage
+
     # Parámetros ATR opcionales
     atr_window: Optional[int] = None    # si None, no se exige columna 'atr'
     atr_mult_sl: Optional[float] = None # si no es None -> usar ATR para SL
     atr_mult_tp: Optional[float] = None # idem para TP
+
+    def __post_init__(self) -> None:
+        """Valida los parámetros de configuración."""
+        validate_positive(self.initial_capital, "initial_capital")
+        validate_non_negative(self.fee_pct, "fee_pct")
+        validate_non_negative(self.slippage_pct, "slippage_pct")
+
+        if self.slippage_pct > 0.05:  # Máximo 5% de slippage
+            raise ValueError(
+                f"slippage_pct demasiado alto: {self.slippage_pct}. Máximo permitido: 0.05 (5%)"
+            )
+
+        if self.sl_pct is not None:
+            validate_range(self.sl_pct, 0.001, 0.5, "sl_pct")
+
+        if self.tp_rr is not None:
+            validate_range(self.tp_rr, 0.5, 20.0, "tp_rr")
 
 
 def compute_sl_tp(
@@ -205,23 +243,32 @@ class Backtester:
 
     def _get_exit_price(self, trade: Trade, row: pd.Series) -> Optional[float]:
         """
-        Determine if trade should exit and return exit price.
+        Determine if trade should exit and return exit price with slippage applied.
         Checks SL first (conservative), then TP.
         Returns None if neither SL nor TP was hit.
+
+        Slippage is applied adversely:
+        - For longs: SL fills lower, TP fills lower
+        - For shorts: SL fills higher, TP fills higher
         """
         high = float(row["high"])
         low = float(row["low"])
+        slippage = self.backtest_config.slippage_pct
 
         if trade.direction == "long":
             if low <= trade.stop_price:
-                return trade.stop_price  # SL hit
+                # SL hit - slippage makes it worse (lower fill)
+                return trade.stop_price * (1.0 - slippage)
             if high >= trade.tp_price:
-                return trade.tp_price  # TP hit
+                # TP hit - slippage reduces profit slightly
+                return trade.tp_price * (1.0 - slippage)
         else:  # short
             if high >= trade.stop_price:
-                return trade.stop_price  # SL hit
+                # SL hit - slippage makes it worse (higher fill)
+                return trade.stop_price * (1.0 + slippage)
             if low <= trade.tp_price:
-                return trade.tp_price  # TP hit
+                # TP hit - slippage reduces profit slightly
+                return trade.tp_price * (1.0 + slippage)
 
         return None
 
@@ -249,7 +296,17 @@ class Backtester:
         if direction is None:
             return None, capital
 
-        entry_price = float(row["close"])
+        # Apply slippage to entry price (adverse direction)
+        base_price = float(row["close"])
+        slippage = self.backtest_config.slippage_pct
+
+        if direction == "long":
+            # Buying: slippage makes entry price higher
+            entry_price = base_price * (1.0 + slippage)
+        else:
+            # Selling short: slippage makes entry price lower
+            entry_price = base_price * (1.0 - slippage)
+
         atr_value = float(row["atr"]) if "atr" in row.index else None
 
         # Calculate stop-loss and take-profit prices
