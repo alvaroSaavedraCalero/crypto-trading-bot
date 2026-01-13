@@ -136,144 +136,165 @@ class Backtester:
 
         Devuelve un BacktestResult con trades, equity curve y métricas.
         """
+        self._validate_dataframe(df)
+        data = df.sort_values("timestamp").reset_index(drop=True).copy()
+
+        capital = self.backtest_config.initial_capital
+        equity_list: List[float] = []
+        equity_times: List[pd.Timestamp] = []
+        trades: List[Trade] = []
+        open_trade: Optional[Trade] = None
+
+        for i in range(len(data)):
+            row = data.iloc[i]
+
+            # Check and close existing trade if stop-loss or take-profit hit
+            if open_trade is not None:
+                open_trade, capital = self._check_and_close_trade(
+                    open_trade, row, capital, trades
+                )
+
+            # Record equity after handling potential trade closure
+            equity_list.append(capital)
+            equity_times.append(row["timestamp"])
+
+            # Try to open new trade based on signal
+            if open_trade is None:
+                open_trade, capital = self._try_open_trade(row, capital)
+
+        equity_series = pd.Series(equity_list, index=pd.to_datetime(equity_times))
+        return self._calculate_metrics(trades, equity_series)
+
+    def _validate_dataframe(self, df: pd.DataFrame) -> None:
+        """Validate that the DataFrame contains all required columns."""
         required_cols = {"timestamp", "open", "high", "low", "close", "signal"}
         if not required_cols.issubset(df.columns):
             missing = required_cols - set(df.columns)
             raise ValueError(f"Faltan columnas necesarias en el DataFrame: {missing}")
 
-        # Ordenamos por tiempo y reseteamos índice
-        data = df.sort_values("timestamp").reset_index(drop=True).copy()
+    def _check_and_close_trade(
+        self,
+        open_trade: Trade,
+        row: pd.Series,
+        capital: float,
+        trades: List[Trade],
+    ) -> tuple[Optional[Trade], float]:
+        """
+        Check if an open trade should be closed due to SL or TP being hit.
+        Returns updated open_trade (None if closed) and capital.
+        """
+        exit_price = self._get_exit_price(open_trade, row)
 
-        cfg = self.backtest_config
+        if exit_price is None:
+            return open_trade, capital
 
-        capital = cfg.initial_capital
-        equity_list: List[float] = []
-        equity_times: List[pd.Timestamp] = []
-        trades: List[Trade] = []
+        # Calculate PnL and close trade
+        pnl = self._calculate_trade_pnl(open_trade, exit_price)
+        fee_exit = exit_price * open_trade.size * self.backtest_config.fee_pct
+        pnl_after_fees = pnl - fee_exit
+        capital += pnl_after_fees
 
-        open_trade: Optional[Trade] = None
+        # Update trade with exit information
+        open_trade.exit_time = row["timestamp"]
+        open_trade.exit_price = exit_price
+        open_trade.pnl = pnl_after_fees
+        open_trade.pnl_pct = pnl_after_fees / self.backtest_config.initial_capital * 100.0
 
-        for i in range(len(data)):
-            row = data.iloc[i]
-            timestamp = row["timestamp"]
-            close = float(row["close"])
-            high = float(row["high"])
-            low = float(row["low"])
-            signal = int(row["signal"])
+        trades.append(open_trade)
+        return None, capital
 
-            # ATR actual (si existe)
-            atr_value = None
-            if "atr" in row.index:
-                atr_value = float(row["atr"])
+    def _get_exit_price(self, trade: Trade, row: pd.Series) -> Optional[float]:
+        """
+        Determine if trade should exit and return exit price.
+        Checks SL first (conservative), then TP.
+        Returns None if neither SL nor TP was hit.
+        """
+        high = float(row["high"])
+        low = float(row["low"])
 
-            # 1) Actualizar trade abierto (si lo hay)
-            if open_trade is not None:
-                exit_price = None
-                reason = None
+        if trade.direction == "long":
+            if low <= trade.stop_price:
+                return trade.stop_price  # SL hit
+            if high >= trade.tp_price:
+                return trade.tp_price  # TP hit
+        else:  # short
+            if high >= trade.stop_price:
+                return trade.stop_price  # SL hit
+            if low <= trade.tp_price:
+                return trade.tp_price  # TP hit
 
-                if open_trade.direction == "long":
-                    # Conservador: primero SL, luego TP
-                    hit_sl = low <= open_trade.stop_price
-                    hit_tp = high >= open_trade.tp_price
+        return None
 
-                    if hit_sl:
-                        exit_price = open_trade.stop_price
-                        reason = "SL"
-                    elif hit_tp:
-                        exit_price = open_trade.tp_price
-                        reason = "TP"
+    def _calculate_trade_pnl(self, trade: Trade, exit_price: float) -> float:
+        """Calculate the PnL for a trade (before fees)."""
+        if trade.direction == "long":
+            return (exit_price - trade.entry_price) * trade.size
+        else:  # short
+            return (trade.entry_price - exit_price) * trade.size
 
-                else:  # short
-                    # Para cortos, SL si el precio sube hasta stop; TP si baja hasta tp
-                    hit_sl = high >= open_trade.stop_price
-                    hit_tp = low <= open_trade.tp_price
+    def _try_open_trade(
+        self,
+        row: pd.Series,
+        capital: float,
+    ) -> tuple[Optional[Trade], float]:
+        """
+        Try to open a new trade based on the signal in the current row.
+        Returns updated open_trade and capital.
+        """
+        signal = int(row["signal"])
+        if signal == 0:
+            return None, capital
 
-                    if hit_sl:
-                        exit_price = open_trade.stop_price
-                        reason = "SL"
-                    elif hit_tp:
-                        exit_price = open_trade.tp_price
-                        reason = "TP"
+        direction = self._get_trade_direction(signal)
+        if direction is None:
+            return None, capital
 
-                if exit_price is not None:
-                    # Cerrar trade
-                    if open_trade.direction == "long":
-                        pnl = (exit_price - open_trade.entry_price) * open_trade.size
-                    else:
-                        pnl = (open_trade.entry_price - exit_price) * open_trade.size
+        entry_price = float(row["close"])
+        atr_value = float(row["atr"]) if "atr" in row.index else None
 
-                    # Comisiones: entrada (ya descontada) + salida
-                    fee_exit = exit_price * open_trade.size * cfg.fee_pct
-                    pnl_after_fees = pnl - fee_exit
+        # Calculate stop-loss and take-profit prices
+        sl_price, tp_price = compute_sl_tp(
+            cfg=self.backtest_config,
+            side=direction,
+            entry_price=entry_price,
+            atr=atr_value,
+        )
 
-                    capital += pnl_after_fees
+        # Calculate position size
+        size = calculate_position_size_spot(
+            capital=capital,
+            entry_price=entry_price,
+            stop_price=sl_price,
+            config=self.risk_config,
+        )
 
-                    open_trade.exit_time = timestamp
-                    open_trade.exit_price = exit_price
-                    open_trade.pnl = pnl_after_fees
-                    open_trade.pnl_pct = pnl_after_fees / cfg.initial_capital * 100.0
+        if size <= 0:
+            return None, capital
 
-                    trades.append(open_trade)
-                    # print(f"Closed {open_trade.direction} at {exit_price} ({reason}), PnL: {pnl_after_fees:.2f}")
+        # Deduct entry fee from capital
+        fee_entry = entry_price * size * self.backtest_config.fee_pct
+        capital -= fee_entry
 
-                    open_trade = None
+        new_trade = Trade(
+            entry_time=row["timestamp"],
+            exit_time=None,
+            direction=direction,
+            entry_price=entry_price,
+            exit_price=None,
+            size=size,
+            stop_price=sl_price,
+            tp_price=tp_price,
+        )
 
-            # Registramos equity tras gestionar el posible cierre
-            equity_list.append(capital)
-            equity_times.append(timestamp)
+        return new_trade, capital
 
-            # 2) Gestionar nuevas entradas según 'signal'
-            #    Solo si NO hay trade abierto
-            if open_trade is None and signal != 0:
-                if signal == 1:
-                    direction = "long"
-                elif signal == -1 and cfg.allow_short:
-                    direction = "short"
-                else:
-                    direction = None
-
-                if direction is not None:
-                    entry_price = close
-
-                    # Calcular SL/TP dinámico (ATR o fijo) según config
-                    sl_price, tp_price = compute_sl_tp(
-                        cfg=cfg,
-                        side=direction,
-                        entry_price=entry_price,
-                        atr=atr_value,
-                    )
-
-                    # Tamaño de la posición en unidades
-                    size = calculate_position_size_spot(
-                        capital=capital,
-                        entry_price=entry_price,
-                        stop_price=sl_price,
-                        config=self.risk_config,
-                    )
-
-                    if size > 0:
-                        # Comisión de entrada
-                        fee_entry = entry_price * size * cfg.fee_pct
-                        capital -= fee_entry  # restamos comisión de entrada
-
-                        open_trade = Trade(
-                            entry_time=timestamp,
-                            exit_time=None,
-                            direction=direction,
-                            entry_price=entry_price,
-                            exit_price=None,
-                            size=size,
-                            stop_price=sl_price,
-                            tp_price=tp_price,
-                        )
-                        # print(f"Opened {direction} at {entry_price}, size {size:.6f}")
-
-        # Equity curve
-        equity_series = pd.Series(equity_list, index=pd.to_datetime(equity_times))
-
-        # Cálculo de métricas
-        result = self._calculate_metrics(trades, equity_series)
-        return result
+    def _get_trade_direction(self, signal: int) -> Optional[str]:
+        """Convert signal to trade direction, respecting allow_short config."""
+        if signal == 1:
+            return "long"
+        if signal == -1 and self.backtest_config.allow_short:
+            return "short"
+        return None
 
     def _calculate_metrics(
         self,
