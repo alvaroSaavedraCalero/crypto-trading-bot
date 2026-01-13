@@ -5,17 +5,42 @@ import numpy as np
 import ta
 
 from strategies.base import BaseStrategy, StrategyMetadata
+from utils.validation import (
+    ValidationError,
+    validate_window_size,
+    validate_multiplier,
+    validate_range,
+)
 
 
 @dataclass
 class SupertrendStrategyConfig:
+    """
+    Configuración para la estrategia Supertrend.
+
+    Attributes:
+        atr_period: Período para el cálculo del ATR (1-100).
+        atr_multiplier: Multiplicador del ATR para las bandas (0.5-10.0).
+        use_adx_filter: Si True, filtra señales usando ADX.
+        adx_period: Período para el cálculo del ADX (1-100).
+        adx_threshold: Umbral mínimo de ADX para confirmar tendencia (0-100).
+    """
     atr_period: int = 10
     atr_multiplier: float = 3.0
-    
+
     # Filtro ADX opcional
     use_adx_filter: bool = False
     adx_period: int = 14
     adx_threshold: float = 25.0
+
+    def __post_init__(self) -> None:
+        """Valida los parámetros de configuración."""
+        validate_window_size(self.atr_period, "atr_period", min_window=1, max_window=100)
+        validate_multiplier(self.atr_multiplier, "atr_multiplier", min_val=0.5, max_val=10.0)
+
+        if self.use_adx_filter:
+            validate_window_size(self.adx_period, "adx_period", min_window=1, max_window=100)
+            validate_range(self.adx_threshold, 0, 100, "adx_threshold")
 
 
 class SupertrendStrategy(BaseStrategy[SupertrendStrategyConfig]):

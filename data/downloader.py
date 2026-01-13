@@ -5,6 +5,10 @@ from pathlib import Path
 import ccxt
 import pandas as pd
 
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 # Directorio de datos (carpeta /data en la raíz del proyecto)
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -207,7 +211,7 @@ def fetch_and_save_datos_cripto(
     """
     df = fetch_datos_cripto(symbol=symbol, timeframe=timeframe, limit=limit)
     csv_path = save_datos_cripto_to_csv(df, symbol=symbol, timeframe=timeframe)
-    print(f"Guardados {len(df)} registros en {csv_path}")
+    logger.info(f"Guardados {len(df)} registros en {csv_path}")
     return df
 
 
@@ -234,11 +238,12 @@ def get_datos_cripto_cached(
         df = load_datos_cripto_from_csv(symbol=symbol, timeframe=timeframe)
         if limit is not None and len(df) > limit:
             df = df.tail(limit).reset_index(drop=True)
-        print(f"Usando datos locales desde {csv_path} ({len(df)} velas).")
+        logger.info(f"Usando datos locales desde {csv_path} ({len(df)} velas).")
         return df
 
     # Descargar de Binance y guardar
+    logger.info(f"Descargando datos de {symbol} en {timeframe} desde Binance...")
     df = fetch_datos_cripto(symbol=symbol, timeframe=timeframe, limit=limit)
     csv_path = save_datos_cripto_to_csv(df, symbol=symbol, timeframe=timeframe)
-    print(f"Descargados y guardados {len(df)} registros en {csv_path}.")
+    logger.info(f"Descargados y guardados {len(df)} registros en {csv_path}.")
     return df

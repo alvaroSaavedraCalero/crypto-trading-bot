@@ -4,6 +4,12 @@ from dataclasses import dataclass
 from typing import Literal
 
 from .base import BaseStrategy, StrategyMetadata
+from utils.validation import (
+    ValidationError,
+    validate_window_size,
+    validate_multiplier,
+    validate_ratio,
+)
 
 import numpy as np
 import pandas as pd
@@ -11,6 +17,19 @@ import pandas as pd
 
 @dataclass
 class KeltnerBreakoutStrategyConfig:
+    """
+    Configuración para la estrategia Keltner Breakout.
+
+    Attributes:
+        kc_window: Período de la media central del canal (5-200).
+        kc_mult: Multiplicador de ATR para las bandas (0.5-5.0).
+        atr_window: Período para el cálculo del ATR (1-100).
+        atr_min_percentile: Percentil mínimo de ATR para filtrar volatilidad (0-1).
+        use_trend_filter: Si True, filtra señales usando EMA de tendencia.
+        trend_ema_window: Período de la EMA de tendencia.
+        allow_short: Si True, permite posiciones cortas.
+        side_mode: Modo de dirección - "both", "long_only", "short_only".
+    """
     # Canal Keltner
     kc_window: int = 30          # periodo de la media
     kc_mult: float = 2.5         # multiplicador de ATR para las bandas
@@ -26,6 +45,24 @@ class KeltnerBreakoutStrategyConfig:
     # Dirección
     allow_short: bool = True     # si queremos también romper a la baja
     side_mode: Literal["both", "long_only", "short_only"] = "both"
+
+    def __post_init__(self) -> None:
+        """Valida los parámetros de configuración."""
+        validate_window_size(self.kc_window, "kc_window", min_window=5, max_window=200)
+        validate_multiplier(self.kc_mult, "kc_mult", min_val=0.5, max_val=5.0)
+        validate_window_size(self.atr_window, "atr_window", min_window=1, max_window=100)
+        validate_ratio(self.atr_min_percentile, "atr_min_percentile", min_val=0.0, max_val=1.0)
+
+        if self.use_trend_filter:
+            validate_window_size(
+                self.trend_ema_window, "trend_ema_window",
+                min_window=self.kc_window + 1, max_window=500
+            )
+
+        if self.side_mode not in ("both", "long_only", "short_only"):
+            raise ValidationError(
+                f"side_mode debe ser 'both', 'long_only' o 'short_only', valor actual: {self.side_mode}"
+            )
 
 
 class KeltnerBreakoutStrategy(BaseStrategy[KeltnerBreakoutStrategyConfig]):

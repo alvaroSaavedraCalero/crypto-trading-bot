@@ -4,16 +4,38 @@ import pandas as pd
 import ta
 
 from strategies.base import BaseStrategy, StrategyMetadata
+from utils.validation import (
+    validate_window_size,
+    validate_multiplier,
+    validate_rsi_levels,
+)
 
 
 @dataclass
 class BollingerMeanReversionStrategyConfig:
+    """
+    Configuración para la estrategia de Reversión a la Media con Bollinger.
+
+    Attributes:
+        bb_window: Período para las Bandas de Bollinger (5-200).
+        bb_std: Número de desviaciones estándar para las bandas (0.5-5.0).
+        rsi_window: Período para el cálculo del RSI (2-100).
+        rsi_oversold: Nivel de sobreventa del RSI (0-50).
+        rsi_overbought: Nivel de sobrecompra del RSI (50-100).
+    """
     bb_window: int = 20
     bb_std: float = 2.0
-    
+
     rsi_window: int = 14
     rsi_oversold: float = 30.0
     rsi_overbought: float = 70.0
+
+    def __post_init__(self) -> None:
+        """Valida los parámetros de configuración."""
+        validate_window_size(self.bb_window, "bb_window", min_window=5, max_window=200)
+        validate_multiplier(self.bb_std, "bb_std", min_val=0.5, max_val=5.0)
+        validate_window_size(self.rsi_window, "rsi_window", min_window=2, max_window=100)
+        validate_rsi_levels(self.rsi_oversold, self.rsi_overbought)
 
 
 class BollingerMeanReversionStrategy(BaseStrategy[BollingerMeanReversionStrategyConfig]):
