@@ -65,6 +65,11 @@ class SupertrendStrategy(BaseStrategy[SupertrendStrategyConfig]):
         c = self.config
         data = df.copy()
 
+        # Validate minimum data length
+        if len(data) < c.atr_period:
+            data["signal"] = 0
+            return data
+
         # ============================
         # 1) Calcular ATR
         # ============================

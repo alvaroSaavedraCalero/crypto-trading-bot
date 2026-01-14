@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from backtesting.engine import BacktestConfig
+from backtesting.engine import BacktestConfig, Backtester
 from utils.risk import RiskManagementConfig
 
 
@@ -149,8 +149,16 @@ def backtest_config() -> BacktestConfig:
 def risk_config() -> RiskManagementConfig:
     """Default risk management configuration for tests."""
     return RiskManagementConfig(
-        risk_per_trade=0.02,
-        max_position_size=1.0,
+        risk_pct=0.02,
+    )
+
+
+@pytest.fixture
+def backtester(backtest_config: BacktestConfig, risk_config: RiskManagementConfig) -> Backtester:
+    """Default backtester instance for tests."""
+    return Backtester(
+        backtest_config=backtest_config,
+        risk_config=risk_config,
     )
 
 

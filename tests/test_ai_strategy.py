@@ -28,7 +28,7 @@ def test_ai_strategy():
     data["low"] = data[["open", "close", "low"]].min(axis=1)
     
     # Initialize Strategy
-    config = AIStrategyConfig(lookback_window=14, n_estimators=10, training_size_pct=0.6)
+    config = AIStrategyConfig(lookback_window=14, training_size_pct=0.6, max_iter=10)
     strategy = AIStrategy(config)
     
     # Generate Signals
