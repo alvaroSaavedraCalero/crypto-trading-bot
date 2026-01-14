@@ -57,7 +57,7 @@ def optimize_keltner():
         df=df,
         backtest_param_ranges=backtest_params,
         metric="profit_factor",
-        n_jobs=-1,
+        n_jobs=None,  # Use all available cores
     )
 
     if results.empty:
@@ -127,7 +127,7 @@ def optimize_bollinger_mr():
             df=df,
             backtest_param_ranges=backtest_params,
             metric="profit_factor",
-            n_jobs=-1,
+            n_jobs=None,  # Use all available cores
         )
 
         if not results.empty:
