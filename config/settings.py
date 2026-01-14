@@ -404,11 +404,144 @@ AI_RF_BTC15M_RUN = StrategyRunConfig(
 
 
 # ==========================
+# ESTRATEGIAS OPTIMIZADAS (2026-01-14)
+# Basadas en optimización exhaustiva con 10,000 velas
+# ==========================
+
+# KELTNER BTC/USDT 15m - OPTIMIZADO
+# Optimización: 2000 configuraciones evaluadas
+# Resultado: PF 2.01, Return 27.29%, Winrate 40.9%
+KELTNER_BTC15M_OPT_CONFIG = KeltnerBreakoutStrategyConfig(
+    kc_window=40,        # Optimizado (antes: 30)
+    kc_mult=2.0,         # Optimizado (antes: 2.5)
+    atr_window=20,
+    atr_min_percentile=0.4,
+    use_trend_filter=False,
+    trend_ema_window=100,
+    allow_short=True,
+    side_mode="both",
+)
+
+KELTNER_BTC15M_OPT_BT_CONFIG = BacktestConfig(
+    initial_capital=1000.0,
+    sl_pct=0.015,        # Optimizado (antes: 0.0075)
+    tp_rr=3.0,           # Optimizado (antes: 2.0)
+    fee_pct=0.0005,
+    allow_short=True,
+)
+
+KELTNER_BTC15M_OPT_RUN = StrategyRunConfig(
+    name="KELTNER_OPTIMIZED_BTCUSDT_15m",
+    symbol="BTC/USDT",
+    timeframe="15m",
+    limit_candles=DEFAULT_LIMIT_CANDLES,
+    strategy_type="KELTNER",
+    strategy_config=KELTNER_BTC15M_OPT_CONFIG,
+    backtest_config=KELTNER_BTC15M_OPT_BT_CONFIG,
+)
+
+
+# BOLLINGER MR BTC/USDT 15m - OPTIMIZADO
+# Optimización: 2000 configuraciones evaluadas
+# Resultado: PF 2.23, Return 18.17%, Winrate 48.1%
+BOLLINGER_MR_BTC15M_OPT_CONFIG = BollingerMeanReversionStrategyConfig(
+    bb_window=25,        # Optimizado (antes: 20)
+    bb_std=2.0,
+    rsi_window=14,
+    rsi_oversold=15.0,   # Optimizado (antes: 25.0) - más extremo
+    rsi_overbought=70.0,
+)
+
+BOLLINGER_MR_BTC15M_OPT_BT_CONFIG = BacktestConfig(
+    initial_capital=1000.0,
+    sl_pct=0.01,         # Optimizado (antes: 0.015)
+    tp_rr=2.5,           # Optimizado (antes: 1.5)
+    fee_pct=0.0005,
+    allow_short=True,
+)
+
+BOLLINGER_MR_BTC15M_OPT_RUN = StrategyRunConfig(
+    name="BOLLINGER_MR_OPTIMIZED_BTCUSDT_15m",
+    symbol="BTC/USDT",
+    timeframe="15m",
+    limit_candles=DEFAULT_LIMIT_CANDLES,
+    strategy_type="BOLLINGER_MR",
+    strategy_config=BOLLINGER_MR_BTC15M_OPT_CONFIG,
+    backtest_config=BOLLINGER_MR_BTC15M_OPT_BT_CONFIG,
+)
+
+
+# BOLLINGER MR ETH/USDT 15m - OPTIMIZADO
+# Resultado: PF 1.43, Return 10.40%, Winrate 37.5%
+BOLLINGER_MR_ETH15M_OPT_CONFIG = BollingerMeanReversionStrategyConfig(
+    bb_window=15,        # Optimizado (ventana más corta para ETH)
+    bb_std=2.2,          # Optimizado (bandas más anchas)
+    rsi_window=14,
+    rsi_oversold=15.0,   # Extremo
+    rsi_overbought=70.0,
+)
+
+BOLLINGER_MR_ETH15M_OPT_BT_CONFIG = BacktestConfig(
+    initial_capital=1000.0,
+    sl_pct=0.015,
+    tp_rr=2.0,
+    fee_pct=0.0005,
+    allow_short=True,
+)
+
+BOLLINGER_MR_ETH15M_OPT_RUN = StrategyRunConfig(
+    name="BOLLINGER_MR_OPTIMIZED_ETHUSDT_15m",
+    symbol="ETH/USDT",
+    timeframe="15m",
+    limit_candles=DEFAULT_LIMIT_CANDLES,
+    strategy_type="BOLLINGER_MR",
+    strategy_config=BOLLINGER_MR_ETH15M_OPT_CONFIG,
+    backtest_config=BOLLINGER_MR_ETH15M_OPT_BT_CONFIG,
+)
+
+
+# BOLLINGER MR BNB/USDT 15m - OPTIMIZADO
+# Resultado: PF 1.40, Return 8.02%, Winrate 50.0%
+BOLLINGER_MR_BNB15M_OPT_CONFIG = BollingerMeanReversionStrategyConfig(
+    bb_window=20,
+    bb_std=2.0,
+    rsi_window=14,
+    rsi_oversold=30.0,   # Optimizado (menos extremo que BTC/ETH)
+    rsi_overbought=70.0,
+)
+
+BOLLINGER_MR_BNB15M_OPT_BT_CONFIG = BacktestConfig(
+    initial_capital=1000.0,
+    sl_pct=0.02,
+    tp_rr=1.5,
+    fee_pct=0.0005,
+    allow_short=True,
+)
+
+BOLLINGER_MR_BNB15M_OPT_RUN = StrategyRunConfig(
+    name="BOLLINGER_MR_OPTIMIZED_BNBUSDT_15m",
+    symbol="BNB/USDT",
+    timeframe="15m",
+    limit_candles=DEFAULT_LIMIT_CANDLES,
+    strategy_type="BOLLINGER_MR",
+    strategy_config=BOLLINGER_MR_BNB15M_OPT_CONFIG,
+    backtest_config=BOLLINGER_MR_BNB15M_OPT_BT_CONFIG,
+)
+
+
+# ==========================
 # Registro de estrategias optimizadas
 # (usado por backtest_strategies.py)
 # ==========================
 
 OPTIMIZED_STRATEGIES = [
+    # Estrategias optimizadas (2026-01-14) - USAR ESTAS EN PRODUCCIÓN
+    KELTNER_BTC15M_OPT_RUN,          # PF 2.01, Return 27.29%
+    BOLLINGER_MR_BTC15M_OPT_RUN,     # PF 2.23, Return 18.17%
+    BOLLINGER_MR_ETH15M_OPT_RUN,     # PF 1.43, Return 10.40%
+    BOLLINGER_MR_BNB15M_OPT_RUN,     # PF 1.40, Return 8.02%
+
+    # Estrategias con parámetros por defecto (legacy - no optimizadas)
     MA_RSI_BTC15M_RUN,
     MACD_ADX_BTC15M_RUN,
     SUPERTREND_BTC15M_RUN,
