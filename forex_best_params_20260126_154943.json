@@ -1,0 +1,44 @@
+{
+  "BOLLINGER_MR": {
+    "best_pair": "USDJPY",
+    "return": -2.11,
+    "trades": 2,
+    "winrate": 0.0,
+    "pf": 0.0,
+    "parameters": {
+      "bb_window": 15,
+      "bb_std": 2.0,
+      "rsi_window": 14,
+      "rsi_oversold": 25.0,
+      "rsi_overbought": 70.0
+    }
+  },
+  "KELTNER": {
+    "best_pair": "USDJPY",
+    "return": -2.09,
+    "trades": 2,
+    "winrate": 0.0,
+    "pf": 0.0,
+    "parameters": {
+      "kc_window": 25,
+      "kc_mult": 2.5,
+      "atr_window": 20,
+      "atr_min_percentile": 0.4
+    }
+  },
+  "MA_RSI": {
+    "best_pair": "USDJPY",
+    "return": -1.08,
+    "trades": 1,
+    "winrate": 0.0,
+    "pf": 0.0,
+    "parameters": {
+      "fast_window": 10,
+      "slow_window": 20,
+      "rsi_window": 14,
+      "rsi_overbought": 70.0,
+      "rsi_oversold": 30.0,
+      "use_rsi_filter": false
+    }
+  }
+}

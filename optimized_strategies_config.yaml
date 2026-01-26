@@ -1,0 +1,41 @@
+
+# Optimized Forex Strategy Parameters
+# Generated: 2026-01-26
+# Pairs: EURUSD, USDJPY | Timeframe: 15m
+
+strategies:
+  BOLLINGER_MR:
+    name: "Bollinger Mean Reversion"
+    description: "Mean reversion using Bollinger Bands + RSI"
+    optimized_for: "USDJPY"
+    expected_return: "-2.11%"
+    parameters:
+      bb_window: 15          # Bollinger Bands period
+      bb_std: 2.0            # Standard deviations
+      rsi_window: 14         # RSI period
+      rsi_oversold: 25.0     # Oversold threshold
+      rsi_overbought: 70.0   # Overbought threshold
+    
+  KELTNER:
+    name: "Keltner Breakout"
+    description: "Breakout strategy using Keltner Channel"
+    optimized_for: "USDJPY"
+    expected_return: "-2.09%"
+    parameters:
+      kc_window: 25              # Channel period
+      kc_mult: 2.5               # ATR multiplier
+      atr_window: 20             # ATR period
+      atr_min_percentile: 0.4    # Minimum volatility filter
+  
+  MA_RSI:
+    name: "Moving Average + RSI"
+    description: "MA cross strategy with RSI confirmation"
+    optimized_for: "USDJPY"
+    expected_return: "-1.08%"
+    parameters:
+      fast_window: 10        # Fast MA period
+      slow_window: 20        # Slow MA period
+      rsi_window: 14         # RSI period
+      rsi_overbought: 70.0   # Overbought level
+      rsi_oversold: 30.0     # Oversold level
+      use_rsi_filter: false  # Don't use additional RSI filter
