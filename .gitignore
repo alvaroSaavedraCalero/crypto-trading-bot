@@ -1,27 +1,85 @@
-# Entorno virtual
+# ============ VIRTUAL ENVIRONMENTS ============
 .venv/
 venv/
+env/
+ENV/
+.env
+.env.local
+.env.*.local
 
-# Archivos de Python
+# ============ PYTHON ============
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.pdb
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Configuración de IDEs
+# ============ TESTING ============
+.pytest_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+
+# ============ IDEs & EDITORS ============
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.AppleDouble
+.LSOverride
 *.code-workspace
+.sublime-project
+.sublime-workspace
+*.iml
 
-# Archivos de sistema macOS
+# ============ FRONTEND ============
+frontend/node_modules/
+frontend/.next
+frontend/.nuxt
+frontend/dist
+frontend/build
+frontend/.cache
+frontend/.env.local
+frontend/.env.*.local
+
+# ============ LOGS & DATABASES ============
+*.log
+logs/
+*.db
+*.sqlite
+*.sqlite3
+.env.production
+
+# ============ DATA FILES ============
+*.csv
+*.json
+*.xlsx
+*.xls
+
+# ============ MISC ============
+*.swp
+*.bak
+.idea/
+.vscode/
+Thumbs.db
 .DS_Store
 
-# Archivos de Jupyter (por si acaso)
-.ipynb_checkpoints/
-
-# Archivos de logs
-*.log
-
-# Archivos CSV (datos y resultados)
-*.csv
