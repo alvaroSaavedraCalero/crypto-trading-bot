@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 
 from ...database import get_db
@@ -14,35 +14,35 @@ async def get_dashboard_stats(
     owner_id: int = 1,
 ):
     """Get dashboard statistics."""
-    
+
     # Obtener conteos
     total_strategies = db.query(func.count(Strategy.id)).filter(
         Strategy.owner_id == owner_id
     ).scalar() or 0
-    
+
     active_backtests = db.query(func.count(BacktestRun.id)).filter(
         BacktestRun.owner_id == owner_id
     ).scalar() or 0
-    
+
     paper_trading_sessions = db.query(func.count(PaperTradingSession.id)).filter(
         PaperTradingSession.owner_id == owner_id,
         PaperTradingSession.is_active == True,
     ).scalar() or 0
-    
+
     # Total trades
     total_trades = db.query(func.sum(PaperTradingSession.total_trades)).filter(
         PaperTradingSession.owner_id == owner_id
     ).scalar() or 0
-    
+
     # Portfolio value (del paper trading)
     portfolio_session = db.query(PaperTradingSession).filter(
         PaperTradingSession.owner_id == owner_id,
         PaperTradingSession.is_active == True,
     ).first()
-    
+
     portfolio_value = portfolio_session.current_capital if portfolio_session else 10000.0
     daily_return = portfolio_session.total_return_pct if portfolio_session else 0.0
-    
+
     return {
         "total_strategies": total_strategies,
         "active_backtests": active_backtests,
@@ -59,18 +59,23 @@ async def get_dashboard_summary(
     owner_id: int = 1,
 ):
     """Get summary data for dashboard."""
-    
-    # Últimos backtests
-    recent_backtests = db.query(BacktestRun).filter(
-        BacktestRun.owner_id == owner_id
-    ).order_by(BacktestRun.created_at.desc()).limit(5).all()
-    
+
+    # Últimos backtests with eager-loaded strategy (fixes N+1 query)
+    recent_backtests = (
+        db.query(BacktestRun)
+        .options(joinedload(BacktestRun.strategy))
+        .filter(BacktestRun.owner_id == owner_id)
+        .order_by(BacktestRun.created_at.desc())
+        .limit(5)
+        .all()
+    )
+
     # Sesiones activas
     active_sessions = db.query(PaperTradingSession).filter(
         PaperTradingSession.owner_id == owner_id,
         PaperTradingSession.is_active == True,
     ).all()
-    
+
     # Mejores estrategias (por winrate)
     best_strategies = db.query(
         Strategy.name,
@@ -81,12 +86,12 @@ async def get_dashboard_summary(
     ).group_by(Strategy.name).order_by(
         func.avg(BacktestRun.winrate_pct).desc()
     ).limit(5).all()
-    
+
     return {
         "recent_backtests": [
             {
                 "id": b.id,
-                "strategy": db.query(Strategy).get(b.strategy_id).name,
+                "strategy": b.strategy.name if b.strategy else "Unknown",
                 "pair": b.pair,
                 "return": b.total_return_pct,
                 "winrate": b.winrate_pct,

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -23,19 +23,21 @@ export const backtestsAPI = {
   list: (skip = 0, limit = 100) => api.get('/backtests', { params: { skip, limit } }),
   get: (id) => api.get(`/backtests/${id}`),
   run: (data) => api.post('/backtests', data),
+  delete: (id) => api.delete(`/backtests/${id}`),
 };
 
 // Paper Trading endpoints
 export const paperTradingAPI = {
-  listSessions: (skip = 0, limit = 100) => 
+  listSessions: (skip = 0, limit = 100) =>
     api.get('/paper-trading', { params: { skip, limit } }),
   getSession: (id) => api.get(`/paper-trading/${id}`),
   createSession: (data) => api.post('/paper-trading', data),
-  getTrades: (sessionId, skip = 0, limit = 100) => 
+  closeSession: (id) => api.post(`/paper-trading/${id}/close`),
+  getTrades: (sessionId, skip = 0, limit = 100) =>
     api.get(`/paper-trading/${sessionId}/trades`, { params: { skip, limit } }),
 };
 
-// Health check
+// Health check - health router is mounted at /api/v1/health
 export const healthAPI = {
   check: () => api.get('/health'),
 };

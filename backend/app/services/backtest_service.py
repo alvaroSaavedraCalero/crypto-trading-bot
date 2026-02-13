@@ -13,7 +13,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 # Add project root to path for imports
-project_root = Path(__file__).parent.parent.parent
+project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from strategies.registry import STRATEGY_REGISTRY
@@ -107,8 +107,8 @@ class BacktestService:
                 strategy_id=strategy_id,
                 pair=pair,
                 timeframe=timeframe,
-                start_date=df.index[0].to_pydatetime() if hasattr(df.index[0], 'to_pydatetime') else df.index[0],
-                end_date=df.index[-1].to_pydatetime() if hasattr(df.index[-1], 'to_pydatetime') else df.index[-1],
+                start_date=pd.Timestamp(df["timestamp"].iloc[0]).to_pydatetime() if "timestamp" in df.columns else df.index[0],
+                end_date=pd.Timestamp(df["timestamp"].iloc[-1]).to_pydatetime() if "timestamp" in df.columns else df.index[-1],
                 total_return_pct=result.total_return_pct,
                 winrate_pct=result.winrate_pct,
                 profit_factor=result.profit_factor,
@@ -138,7 +138,7 @@ class BacktestService:
                     pnl=trade.pnl,
                     pnl_pct=trade.pnl_pct,
                     is_winning=1 if trade.pnl > 0 else 0,
-                    metadata=trade.metadata if hasattr(trade, 'metadata') else None,
+                    extra_data=trade.metadata if hasattr(trade, 'metadata') else None,
                 )
                 db.add(backtest_trade)
 

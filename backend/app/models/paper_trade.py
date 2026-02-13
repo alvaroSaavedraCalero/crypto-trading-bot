@@ -28,7 +28,7 @@ class PaperTrade(Base):
     is_winning = Column(Integer, nullable=True)  # 1 si ganador, 0 si perdedor, None si abierto
     
     # Extra data
-    metadata = Column(JSON, nullable=True)
+    extra_data = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     closed_at = Column(DateTime, nullable=True)
 

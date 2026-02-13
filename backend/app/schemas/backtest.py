@@ -20,7 +20,7 @@ class BacktestTradeBase(BaseModel):
 class BacktestTrade(BacktestTradeBase):
     id: int
     backtest_run_id: int
-    metadata: Optional[Dict[str, Any]] = None
+    extra_data: Optional[Dict[str, Any]] = None
     created_at: datetime
 
     class Config:

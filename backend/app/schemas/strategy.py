@@ -36,8 +36,10 @@ class Strategy(StrategyBase):
         from_attributes = True
 
 
+from .backtest import BacktestRun
+
 class StrategyWithBacktests(Strategy):
-    backtest_runs: List["BacktestRun"] = []
+    backtest_runs: List[BacktestRun] = []
 
     class Config:
         from_attributes = True

@@ -13,7 +13,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 # Add project root to path for imports
-project_root = Path(__file__).parent.parent.parent
+project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from strategies.registry import STRATEGY_REGISTRY

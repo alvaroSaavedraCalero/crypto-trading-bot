@@ -28,7 +28,7 @@ class BacktestTrade(Base):
     is_winning = Column(Integer, default=0)  # 1 si ganador, 0 si perdedor
     
     # Extra data
-    metadata = Column(JSON, nullable=True)  # Información adicional del trade
+    extra_data = Column(JSON, nullable=True)  # Información adicional del trade
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relaciones

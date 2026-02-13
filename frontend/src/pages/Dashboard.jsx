@@ -22,7 +22,7 @@ function Dashboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
+
       // Check API health
       try {
         await healthAPI.check();
@@ -33,7 +33,7 @@ function Dashboard() {
 
       // Fetch stats
       try {
-        const statsRes = await fetch('http://localhost:8000/api/v1/dashboard/stats');
+        const statsRes = await fetch('/api/v1/dashboard/stats');
         if (statsRes.ok) {
           const statsData = await statsRes.json();
           setStats(statsData);
@@ -44,7 +44,7 @@ function Dashboard() {
 
       // Fetch summary
       try {
-        const summaryRes = await fetch('http://localhost:8000/api/v1/dashboard/summary');
+        const summaryRes = await fetch('/api/v1/dashboard/summary');
         if (summaryRes.ok) {
           const summaryData = await summaryRes.json();
           setSummary(summaryData);

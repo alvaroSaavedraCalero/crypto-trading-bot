@@ -20,7 +20,7 @@ class PaperTradeBase(BaseModel):
 class PaperTrade(PaperTradeBase):
     id: int
     paper_trading_session_id: int
-    metadata: Optional[Dict[str, Any]] = None
+    extra_data: Optional[Dict[str, Any]] = None
     created_at: datetime
     closed_at: Optional[datetime] = None
 
