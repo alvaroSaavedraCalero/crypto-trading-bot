@@ -8,9 +8,9 @@ class StrategyBase(BaseModel):
     description: Optional[str] = None
     strategy_type: str
     config: Dict[str, Any]
-    initial_capital: Optional[int] = 10000
-    stop_loss_pct: Optional[int] = 2
-    take_profit_rr: Optional[int] = 2
+    initial_capital: Optional[float] = 10000.0
+    stop_loss_pct: Optional[float] = 2.0
+    take_profit_rr: Optional[float] = 2.0
 
 
 class StrategyCreate(StrategyBase):
@@ -37,6 +37,7 @@ class Strategy(StrategyBase):
 
 
 from .backtest import BacktestRun
+
 
 class StrategyWithBacktests(Strategy):
     backtest_runs: List[BacktestRun] = []

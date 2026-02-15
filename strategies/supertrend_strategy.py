@@ -94,61 +94,44 @@ class SupertrendStrategy(BaseStrategy[SupertrendStrategyConfig]):
         m = c.atr_multiplier
 
         # Basic bands
-        basic_upper = (high + low) / 2 + m * atr
-        basic_lower = (high + low) / 2 - m * atr
+        hl2 = (high + low) / 2
+        basic_upper = hl2 + m * atr
+        basic_lower = hl2 - m * atr
 
-        # Inicializar columnas finales
-        final_upper = pd.Series(index=data.index, dtype='float64')
-        final_lower = pd.Series(index=data.index, dtype='float64')
-        supertrend = pd.Series(index=data.index, dtype='float64')
-        
-        # 1: Uptrend, -1: Downtrend
-        trend = pd.Series(0, index=data.index, dtype='int')
+        # Use numpy arrays for fast iteration (Supertrend is inherently recursive)
+        n = len(data)
+        bu = basic_upper.values
+        bl = basic_lower.values
+        cl = close.values
 
-        # Cálculo iterativo (Supertrend es recursivo)
-        # Se puede optimizar con Numba, pero para backtest en Python puro:
-        
-        # Valores iniciales
-        final_upper.iloc[0] = basic_upper.iloc[0]
-        final_lower.iloc[0] = basic_lower.iloc[0]
-        
-        # Iteramos desde la segunda vela
-        for i in range(1, len(data)):
-            # --- FINAL UPPER BAND ---
-            if basic_upper.iloc[i] < final_upper.iloc[i-1] or close.iloc[i-1] > final_upper.iloc[i-1]:
-                final_upper.iloc[i] = basic_upper.iloc[i]
+        fu = np.empty(n, dtype=np.float64)
+        fl = np.empty(n, dtype=np.float64)
+        tr = np.empty(n, dtype=np.int64)
+        st = np.empty(n, dtype=np.float64)
+
+        fu[0] = bu[0]
+        fl[0] = bl[0]
+        tr[0] = 0
+        st[0] = np.nan
+
+        for i in range(1, n):
+            # Final upper band
+            fu[i] = bu[i] if (bu[i] < fu[i - 1] or cl[i - 1] > fu[i - 1]) else fu[i - 1]
+
+            # Final lower band
+            fl[i] = bl[i] if (bl[i] > fl[i - 1] or cl[i - 1] < fl[i - 1]) else fl[i - 1]
+
+            # Trend direction
+            if tr[i - 1] == 1:
+                tr[i] = -1 if cl[i] < fl[i] else 1
             else:
-                final_upper.iloc[i] = final_upper.iloc[i-1]
+                tr[i] = 1 if cl[i] > fu[i] else -1
 
-            # --- FINAL LOWER BAND ---
-            if basic_lower.iloc[i] > final_lower.iloc[i-1] or close.iloc[i-1] < final_lower.iloc[i-1]:
-                final_lower.iloc[i] = basic_lower.iloc[i]
-            else:
-                final_lower.iloc[i] = final_lower.iloc[i-1]
+            # Supertrend value
+            st[i] = fl[i] if tr[i] == 1 else fu[i]
 
-            # --- TREND ---
-            # Si la tendencia previa era alcista (1)
-            if trend.iloc[i-1] == 1:
-                if close.iloc[i] < final_lower.iloc[i]:
-                    trend.iloc[i] = -1 # Cambio a bajista
-                else:
-                    trend.iloc[i] = 1 # Mantiene alcista
-            
-            # Si la tendencia previa era bajista (-1) o neutra (0)
-            else:
-                if close.iloc[i] > final_upper.iloc[i]:
-                    trend.iloc[i] = 1 # Cambio a alcista
-                else:
-                    trend.iloc[i] = -1 # Mantiene bajista
-
-            # --- SUPERTREND VALUE ---
-            if trend.iloc[i] == 1:
-                supertrend.iloc[i] = final_lower.iloc[i]
-            else:
-                supertrend.iloc[i] = final_upper.iloc[i]
-
-        data["supertrend"] = supertrend
-        data["trend_dir"] = trend
+        data["supertrend"] = st
+        data["trend_dir"] = tr
 
         # ============================
         # 3) Generar Señales

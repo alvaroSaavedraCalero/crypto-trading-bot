@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { backtestsAPI, strategiesAPI } from '../services/api';
+import WinLossChart from '../components/charts/WinLossChart';
+import MetricsPanel from '../components/stats/MetricsPanel';
 import './Backtests.css';
 
 function Backtests() {
@@ -59,19 +62,18 @@ function Backtests() {
       setShowForm(false);
 
       const stratName = strategies.find(s => s.id === Number(formData.strategy_id))?.name || '';
-      setSuccess(
-        `Backtest completado: ${stratName} en ${result.pair} — ` +
-        `Retorno: ${result.total_return_pct?.toFixed(2)}%, ` +
-        `Winrate: ${result.winrate_pct?.toFixed(1)}%, ` +
-        `Trades: ${result.num_trades}`
-      );
+      const msg = `Backtest completado: ${stratName} - Retorno: ${result.total_return_pct?.toFixed(2)}%, Trades: ${result.num_trades}`;
+      setSuccess(msg);
+      toast.success('Backtest ejecutado correctamente');
 
       await fetchData();
       if (result.backtest_id) {
         handleViewBacktest(result.backtest_id);
       }
     } catch (err) {
-      setError('Error al ejecutar backtest: ' + (err.response?.data?.detail || err.message));
+      const msg = 'Error al ejecutar backtest: ' + (err.response?.data?.detail || err.message);
+      setError(msg);
+      toast.error(msg);
     } finally {
       setRunning(false);
     }
@@ -88,15 +90,15 @@ function Backtests() {
   };
 
   const handleDeleteBacktest = async (id) => {
-    if (!confirm('Seguro que deseas eliminar este backtest?')) return;
+    if (!window.confirm('Seguro que deseas eliminar este backtest?')) return;
     try {
       setError(null);
       await backtestsAPI.delete(id);
       if (selectedBacktest?.id === id) setSelectedBacktest(null);
-      setSuccess('Backtest eliminado correctamente');
+      toast.success('Backtest eliminado');
       await fetchData();
     } catch (err) {
-      setError('Error al eliminar backtest: ' + (err.response?.data?.detail || err.message));
+      toast.error('Error al eliminar: ' + (err.response?.data?.detail || err.message));
     }
   };
 
@@ -105,14 +107,23 @@ function Backtests() {
     return strat ? strat.name : `Strategy #${bt.strategy_id}`;
   };
 
-  if (loading) return <div className="backtests-page"><p>Cargando backtests...</p></div>;
+  if (loading) {
+    return (
+      <div className="backtests-page">
+        <div className="page-header"><h1>Backtests</h1></div>
+        <div style={{ display: 'grid', gap: '0.75rem' }}>
+          {[1, 2, 3].map(i => <div key={i} className="skeleton skeleton-card" />)}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="backtests-page">
       <div className="page-header">
         <h1>Backtests</h1>
         <button className="btn-primary" onClick={() => { setShowForm(!showForm); setSuccess(null); }}>
-          {showForm ? '✕ Cancelar' : '+ Nuevo Backtest'}
+          {showForm ? 'Cancelar' : '+ Nuevo Backtest'}
         </button>
       </div>
 
@@ -122,7 +133,7 @@ function Backtests() {
       {showForm && (
         <div className="form-container">
           <form className="strategy-form" onSubmit={handleRunBacktest}>
-            <h3>Ejecutar Backtest</h3>
+            <h3 style={{ color: 'var(--text-primary)', marginBottom: '1rem' }}>Ejecutar Backtest</h3>
 
             <div className="form-group">
               <label>Estrategia *</label>
@@ -133,9 +144,7 @@ function Backtests() {
               >
                 {strategies.length === 0 && <option value="">Sin estrategias</option>}
                 {strategies.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.strategy_type})
-                  </option>
+                  <option key={s.id} value={s.id}>{s.name} ({s.strategy_type})</option>
                 ))}
               </select>
             </div>
@@ -193,84 +202,68 @@ function Backtests() {
       {selectedBacktest && (
         <div className="form-container">
           <div className="backtest-detail">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3>
                 Detalle Backtest #{selectedBacktest.id}
-                {' — '}
+                {' -- '}
                 {getStrategyName(selectedBacktest)} / {selectedBacktest.pair}
               </h3>
               <button className="btn-secondary" onClick={() => setSelectedBacktest(null)}>Cerrar</button>
             </div>
-            <div className="session-stats">
-              <div className="stat">
-                <p className="stat-label">Retorno</p>
-                <p className={`stat-value ${selectedBacktest.total_return_pct < 0 ? 'negative' : 'positive'}`}>
-                  {selectedBacktest.total_return_pct > 0 ? '+' : ''}{selectedBacktest.total_return_pct?.toFixed(2)}%
-                </p>
-              </div>
-              <div className="stat">
-                <p className="stat-label">Winrate</p>
-                <p className="stat-value">{selectedBacktest.winrate_pct?.toFixed(1)}%</p>
-              </div>
-              <div className="stat">
-                <p className="stat-label">Profit Factor</p>
-                <p className="stat-value">{selectedBacktest.profit_factor?.toFixed(2)}</p>
-              </div>
-              <div className="stat">
-                <p className="stat-label">Max Drawdown</p>
-                <p className="stat-value negative">{selectedBacktest.max_drawdown_pct?.toFixed(2)}%</p>
-              </div>
-              <div className="stat">
-                <p className="stat-label">Trades</p>
-                <p className="stat-value">
-                  {selectedBacktest.num_trades} ({selectedBacktest.winning_trades}W / {selectedBacktest.losing_trades}L)
-                </p>
-              </div>
-              <div className="stat">
-                <p className="stat-label">Periodo</p>
-                <p className="stat-value">
-                  {selectedBacktest.start_date ? new Date(selectedBacktest.start_date).toLocaleDateString() : '?'}
-                  {' - '}
-                  {selectedBacktest.end_date ? new Date(selectedBacktest.end_date).toLocaleDateString() : '?'}
-                </p>
-              </div>
-            </div>
-            {selectedBacktest.trades?.length > 0 ? (
+
+            <MetricsPanel metrics={selectedBacktest} />
+
+            {selectedBacktest.trades?.length > 0 && (
               <>
-                <h4 style={{ marginTop: '1rem' }}>Trades ({selectedBacktest.trades.length})</h4>
-                <table className="backtests-table">
-                  <thead>
-                    <tr>
-                      <th>Lado</th>
-                      <th>Entrada</th>
-                      <th>Salida</th>
-                      <th>Tamano</th>
-                      <th>PnL</th>
-                      <th>PnL %</th>
-                      <th>Resultado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedBacktest.trades.map((t, idx) => (
-                      <tr key={idx}>
-                        <td><strong>{t.side === 'long' ? 'LONG' : 'SHORT'}</strong></td>
-                        <td>${Number(t.entry_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td>${Number(t.exit_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td>{Number(t.position_size).toFixed(6)}</td>
-                        <td className={t.pnl < 0 ? 'negative' : 'positive'}>
-                          ${Number(t.pnl).toFixed(2)}
-                        </td>
-                        <td className={t.pnl_pct < 0 ? 'negative' : 'positive'}>
-                          {t.pnl_pct > 0 ? '+' : ''}{Number(t.pnl_pct).toFixed(2)}%
-                        </td>
-                        <td>{t.is_winning ? 'WIN' : 'LOSS'}</td>
+                <div style={{ marginTop: '1.5rem' }}>
+                  <h4 style={{ color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
+                    Distribucion de PnL ({selectedBacktest.trades.length} trades)
+                  </h4>
+                  <WinLossChart trades={selectedBacktest.trades} height={220} />
+                </div>
+
+                <h4 style={{ marginTop: '1.5rem', color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
+                  Trades ({selectedBacktest.trades.length})
+                </h4>
+                <div className="table-wrapper">
+                  <table className="backtests-table">
+                    <thead>
+                      <tr>
+                        <th>Lado</th>
+                        <th>Entrada</th>
+                        <th>Salida</th>
+                        <th>Tamano</th>
+                        <th>PnL</th>
+                        <th>PnL %</th>
+                        <th>Resultado</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {selectedBacktest.trades.map((t, idx) => (
+                        <tr key={idx}>
+                          <td><strong>{t.side === 'long' ? 'LONG' : 'SHORT'}</strong></td>
+                          <td>${Number(t.entry_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td>${Number(t.exit_price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td>{Number(t.position_size).toFixed(6)}</td>
+                          <td className={t.pnl < 0 ? 'negative' : 'positive'}>
+                            ${Number(t.pnl).toFixed(2)}
+                          </td>
+                          <td className={t.pnl_pct < 0 ? 'negative' : 'positive'}>
+                            {t.pnl_pct > 0 ? '+' : ''}{Number(t.pnl_pct).toFixed(2)}%
+                          </td>
+                          <td style={{ color: t.is_winning ? 'var(--profit)' : 'var(--loss)', fontWeight: 600 }}>
+                            {t.is_winning ? 'WIN' : 'LOSS'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </>
-            ) : (
-              <p style={{ marginTop: '1rem', color: '#999' }}>
+            )}
+
+            {(!selectedBacktest.trades || selectedBacktest.trades.length === 0) && (
+              <p style={{ marginTop: '1rem', color: 'var(--text-muted)' }}>
                 Este backtest no genero trades. La estrategia no produjo senales en el periodo seleccionado.
               </p>
             )}
@@ -278,7 +271,6 @@ function Backtests() {
         </div>
       )}
 
-      {/* Backtest cards with stats */}
       {backtests.length === 0 ? (
         <div className="empty-state">
           <p>No hay backtests aun</p>
@@ -287,19 +279,16 @@ function Backtests() {
       ) : (
         <div className="backtest-cards">
           {backtests.map((bt) => (
-            <div
-              key={bt.id}
-              className={`backtest-card ${selectedBacktest?.id === bt.id ? 'selected' : ''}`}
-            >
+            <div key={bt.id} className={`backtest-card ${selectedBacktest?.id === bt.id ? 'selected' : ''}`}>
               <div className="backtest-card-header">
                 <div>
                   <h3>{getStrategyName(bt)}</h3>
                   <p className="backtest-card-meta">
-                    {bt.pair} / {bt.timeframe} — {bt.created_at ? new Date(bt.created_at).toLocaleDateString() : ''}
+                    {bt.pair} / {bt.timeframe} -- {bt.created_at ? new Date(bt.created_at).toLocaleDateString() : ''}
                   </p>
                 </div>
-                <span className={`return-badge ${bt.total_return_pct < 0 ? 'negative' : 'positive'}`}>
-                  {bt.total_return_pct > 0 ? '+' : ''}{bt.total_return_pct?.toFixed(2)}%
+                <span className={`return-badge ${(bt.total_return_pct || 0) < 0 ? 'negative' : 'positive'}`}>
+                  {(bt.total_return_pct || 0) > 0 ? '+' : ''}{bt.total_return_pct?.toFixed(2)}%
                 </span>
               </div>
 
@@ -319,14 +308,6 @@ function Backtests() {
                 <div className="mini-stat">
                   <span className="mini-stat-label">Trades</span>
                   <span className="mini-stat-value">{bt.num_trades} <small>({bt.winning_trades}W/{bt.losing_trades}L)</small></span>
-                </div>
-                <div className="mini-stat">
-                  <span className="mini-stat-label">Periodo</span>
-                  <span className="mini-stat-value">
-                    {bt.start_date ? new Date(bt.start_date).toLocaleDateString() : '?'}
-                    {' - '}
-                    {bt.end_date ? new Date(bt.end_date).toLocaleDateString() : '?'}
-                  </span>
                 </div>
               </div>
 

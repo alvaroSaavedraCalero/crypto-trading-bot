@@ -32,9 +32,15 @@ class BBTrendStrategyConfig:
     signal_mode: SignalMode = "breakout"  # "breakout" o "pullback"
 
 
-class BBTrendStrategy(BaseStrategy):
+    def __post_init__(self) -> None:
+        assert self.bb_window > 0, "bb_window must be positive"
+        assert self.bb_std > 0, "bb_std must be positive"
+        assert self.trend_ema_window > 0, "trend_ema_window must be positive"
+
+
+class BBTrendStrategy(BaseStrategy[BBTrendStrategyConfig]):
     def __init__(self, config: BBTrendStrategyConfig) -> None:
-        self.config = config
+        super().__init__(config)
 
     def generate_signals(self, df: pd.DataFrame) -> pd.DataFrame:
         """

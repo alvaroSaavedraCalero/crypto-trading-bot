@@ -43,6 +43,8 @@ class BaseStrategy(ABC, Generic[ConfigT]):
         Debe:
         - NO modificar el df original (trabajar sobre una copia o usar assign).
         - Añadir al menos una columna 'signal' (1, -1, 0).
+        - Optionally add a 'signal_strength' column (float 0.0-1.0) to scale
+          position sizing in the backtester. If not present, strength defaults to 1.0.
         - Devolver el DataFrame resultante.
         """
         raise NotImplementedError

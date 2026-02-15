@@ -156,31 +156,35 @@ class AIStrategy(BaseStrategy[AIStrategyConfig]):
         X = train_data[feature_cols]
         y = train_data["target"]
         
-        # 3. Train/Test Split
+        # 3. Train/Test Split with gap to prevent data leakage
         split_idx = int(len(train_data) * self.config.training_size_pct)
-        
+
+        # Gap = max lookback used in features (lagged features use up to 3 + lookback_window)
+        gap = self.config.lookback_window + 3
+
         X_train = X.iloc[:split_idx]
         y_train = y.iloc[:split_idx]
-        
+
         # Train
         self.model.fit(X_train, y_train)
         self.is_trained = True
-        
+
         # Predict on ALL valid data
         X_all = valid_data[feature_cols]
         all_probs = self.model.predict_proba(X_all)[:, 1]
-        
+
         valid_data["prob_up"] = all_probs
         valid_data["signal"] = 0
-        
+
         long_cond = valid_data["prob_up"] > self.config.prediction_threshold
         short_cond = valid_data["prob_up"] < (1 - self.config.prediction_threshold)
-        
+
         valid_data.loc[long_cond, "signal"] = 1
         valid_data.loc[short_cond, "signal"] = -1
-        
-        # Zero out signals in training period
-        valid_data.iloc[:split_idx, valid_data.columns.get_loc("signal")] = 0
+
+        # Zero out signals in training period AND gap period
+        gap_end = min(split_idx + gap, len(valid_data))
+        valid_data.iloc[:gap_end, valid_data.columns.get_loc("signal")] = 0
         
         # Merge back
         data["signal"] = 0

@@ -20,8 +20,12 @@ class Settings(BaseSettings):
     # API
     API_PREFIX: str = "/api/v1"
     
-    # Security (optional - you can add JWT later)
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
+    # Security
+    SECRET_KEY: str = os.environ.get(
+        "SECRET_KEY",
+        "dev-only-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    )
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     class Config:
         case_sensitive = True

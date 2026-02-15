@@ -25,6 +25,12 @@ class SmartMoneyStrategyConfig:
     # Gestión
     allow_short: bool = True
 
+    def __post_init__(self) -> None:
+        assert self.swing_length > 0, "swing_length must be positive"
+        assert self.fvg_min_size_pct > 0, "fvg_min_size_pct must be positive"
+        assert self.ob_mitigation_buffer >= 0, "ob_mitigation_buffer must be non-negative"
+        assert self.trend_ema_window > 0, "trend_ema_window must be positive"
+
 
 class SmartMoneyStrategy(BaseStrategy[SmartMoneyStrategyConfig]):
     """
@@ -224,6 +230,89 @@ class SmartMoneyStrategy(BaseStrategy[SmartMoneyStrategyConfig]):
                 remaining_fvgs = remaining_fvgs[-20:]
                 
             active_fvgs = remaining_fvgs
+
+        # Order Block detection (if enabled)
+        if self.config.use_ob:
+            active_obs = []
+            ob_buffer = self.config.ob_mitigation_buffer
+
+            for i in range(2, len(data)):
+                # Detect new Order Blocks
+                # Strong bullish move: current candle is bullish with body > 1.5x avg body
+                body_curr = abs(c_close[i] - data["open"].values[i])
+                body_avg = np.mean(
+                    [abs(c_close[j] - data["open"].values[j]) for j in range(max(0, i - 10), i)]
+                ) if i > 0 else body_curr
+
+                # Bullish OB: last bearish candle before a strong bullish move
+                if (
+                    c_close[i] > data["open"].values[i]
+                    and body_curr > 1.5 * body_avg
+                    and i >= 1
+                ):
+                    # Check if candle i-1 was bearish (the OB candle)
+                    if c_close[i - 1] < data["open"].values[i - 1]:
+                        active_obs.append({
+                            "top": data["open"].values[i - 1],
+                            "bottom": c_close[i - 1],
+                            "type": "bull",
+                            "created_at": i,
+                        })
+
+                # Bearish OB: last bullish candle before a strong bearish move
+                if (
+                    c_close[i] < data["open"].values[i]
+                    and body_curr > 1.5 * body_avg
+                    and i >= 1
+                ):
+                    if c_close[i - 1] > data["open"].values[i - 1]:
+                        active_obs.append({
+                            "top": c_close[i - 1],
+                            "bottom": data["open"].values[i - 1],
+                            "type": "bear",
+                            "created_at": i,
+                        })
+
+                # Check OB mitigation and generate signals
+                remaining_obs = []
+                trend_bull = c_close[i] > c_ema[i]
+                trend_bear = c_close[i] < c_ema[i]
+
+                for ob in active_obs:
+                    if ob["created_at"] == i:
+                        remaining_obs.append(ob)
+                        continue
+
+                    if ob["type"] == "bull":
+                        # Price retraces down to the OB zone
+                        if c_low[i] <= ob["top"] + ob_buffer:
+                            if trend_bull and c_close[i] >= ob["bottom"]:
+                                if signals[i] == 0:
+                                    signals[i] = 1
+                                continue  # consumed
+                            elif c_close[i] < ob["bottom"]:
+                                continue  # invalidated
+                            else:
+                                remaining_obs.append(ob)
+                        else:
+                            remaining_obs.append(ob)
+
+                    elif ob["type"] == "bear":
+                        if c_high[i] >= ob["bottom"] - ob_buffer:
+                            if trend_bear and c_close[i] <= ob["top"]:
+                                if signals[i] == 0 and self.config.allow_short:
+                                    signals[i] = -1
+                                continue
+                            elif c_close[i] > ob["top"]:
+                                continue
+                            else:
+                                remaining_obs.append(ob)
+                        else:
+                            remaining_obs.append(ob)
+
+                if len(remaining_obs) > 20:
+                    remaining_obs = remaining_obs[-20:]
+                active_obs = remaining_obs
 
         data['signal'] = signals
         return data

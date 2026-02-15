@@ -1,35 +1,32 @@
-"""
-Servicio de Backtesting
-Integra la lógica de backtesting existente con la API
-"""
+"""Backtest Service - integrates backtesting engine with API."""
 
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
-import json
+from datetime import datetime
+from typing import Dict, Any
 
 import pandas as pd
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-# Add project root to path for imports
-project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
+# Add project root to path for imports (only if not already present)
+project_root = str(Path(__file__).parent.parent.parent.parent)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from strategies.registry import STRATEGY_REGISTRY
 from backtesting.engine import Backtester, BacktestConfig
-from utils.risk import RiskManagementConfig, calculate_position_size_spot
+from utils.risk import RiskManagementConfig
 from data.yfinance_downloader import get_yfinance_data
 from utils.logger import get_logger
 
+from ..config import settings
 from ..models import Strategy as StrategyModel, BacktestRun, BacktestTrade
-from ..schemas import BacktestRun as BacktestRunSchema
 
 logger = get_logger(__name__)
 
 
 class BacktestService:
-    """Servicio para ejecutar backtests y guardar resultados"""
+    """Service for running backtests and saving results."""
 
     @staticmethod
     def run_backtest(
@@ -41,32 +38,20 @@ class BacktestService:
         limit: int = 2000,
         owner_id: int = 1,
     ) -> Dict[str, Any]:
-        """
-        Ejecuta un backtest de una estrategia en un par y guarda los resultados.
-        
-        Args:
-            db: Sesión de base de datos
-            strategy_id: ID de la estrategia
-            pair: Par de trading (ej: EURUSD)
-            timeframe: Timeframe (ej: 15m)
-            period: Período de datos (ej: 60d)
-            limit: Número de candles
-            owner_id: ID del usuario propietario
-            
-        Returns:
-            Dict con los resultados del backtest
-        """
+        """Run a backtest for a strategy and save results."""
         try:
-            # Obtener estrategia de la BD
-            strategy = db.query(StrategyModel).filter(
-                StrategyModel.id == strategy_id,
-                StrategyModel.owner_id == owner_id,
-            ).first()
+            strategy = (
+                db.query(StrategyModel)
+                .filter(
+                    StrategyModel.id == strategy_id,
+                    StrategyModel.owner_id == owner_id,
+                )
+                .first()
+            )
 
             if not strategy:
-                return {"error": "Estrategia no encontrada"}
+                return {"error": "Strategy not found"}
 
-            # Obtener datos
             df = get_yfinance_data(
                 symbol=pair,
                 timeframe=timeframe,
@@ -75,18 +60,14 @@ class BacktestService:
             )
 
             if df is None or df.empty:
-                return {"error": f"No se pudieron obtener datos para {pair}"}
+                return {"error": f"Could not fetch data for {pair}"}
 
-            # Obtener clase de estrategia
             if strategy.strategy_type not in STRATEGY_REGISTRY:
-                return {"error": f"Estrategia {strategy.strategy_type} no registrada"}
+                return {"error": f"Strategy type {strategy.strategy_type} not registered"}
 
             strategy_class, config_class = STRATEGY_REGISTRY[strategy.strategy_type]
-
-            # Crear instancia de configuración
             strategy_config = config_class(**strategy.config)
 
-            # Configuración de backtest
             backtest_config = BacktestConfig(
                 initial_capital=strategy.initial_capital,
                 sl_pct=strategy.stop_loss_pct / 100,
@@ -97,18 +78,24 @@ class BacktestService:
 
             risk_config = RiskManagementConfig(risk_pct=0.01)
 
-            # Ejecutar backtest
             backtester = Backtester(backtest_config, risk_config)
             result = backtester.backtest(df, strategy_class, strategy_config)
 
-            # Guardar en BD
             backtest_run = BacktestRun(
                 owner_id=owner_id,
                 strategy_id=strategy_id,
                 pair=pair,
                 timeframe=timeframe,
-                start_date=pd.Timestamp(df["timestamp"].iloc[0]).to_pydatetime() if "timestamp" in df.columns else df.index[0],
-                end_date=pd.Timestamp(df["timestamp"].iloc[-1]).to_pydatetime() if "timestamp" in df.columns else df.index[-1],
+                start_date=(
+                    pd.Timestamp(df["timestamp"].iloc[0]).to_pydatetime()
+                    if "timestamp" in df.columns
+                    else df.index[0]
+                ),
+                end_date=(
+                    pd.Timestamp(df["timestamp"].iloc[-1]).to_pydatetime()
+                    if "timestamp" in df.columns
+                    else df.index[-1]
+                ),
                 total_return_pct=result.total_return_pct,
                 winrate_pct=result.winrate_pct,
                 profit_factor=result.profit_factor,
@@ -121,11 +108,11 @@ class BacktestService:
             )
 
             db.add(backtest_run)
-            db.flush()  # Para obtener el ID
+            db.flush()
 
-            # Guardar trades
-            for trade in result.trades:
-                backtest_trade = BacktestTrade(
+            # Bulk insert trades
+            trade_objects = [
+                BacktestTrade(
                     backtest_run_id=backtest_run.id,
                     entry_time=trade.entry_time,
                     exit_time=trade.exit_time,
@@ -138,11 +125,12 @@ class BacktestService:
                     pnl=trade.pnl,
                     pnl_pct=trade.pnl_pct,
                     is_winning=1 if trade.pnl > 0 else 0,
-                    extra_data=trade.metadata if hasattr(trade, 'metadata') else None,
+                    extra_data=trade.metadata if hasattr(trade, "metadata") else None,
                 )
-                db.add(backtest_trade)
+                for trade in result.trades
+            ]
+            db.add_all(trade_objects)
 
-            # Actualizar last_backtest_at
             strategy.last_backtest_at = datetime.utcnow()
             db.commit()
 
@@ -161,25 +149,31 @@ class BacktestService:
             }
 
         except Exception as e:
-            logger.error(f"Error en backtest: {str(e)}", exc_info=True)
+            logger.error(f"Backtest error: {str(e)}", exc_info=True)
             db.rollback()
-            return {"error": f"Error en backtest: {str(e)[:100]}"}
+            if settings.DEBUG:
+                return {"error": f"Backtest error: {str(e)[:200]}"}
+            return {"error": "Backtest execution failed"}
 
     @staticmethod
     def get_backtest_results(db: Session, backtest_id: int) -> Dict[str, Any]:
-        """Obtiene los resultados de un backtest con sus trades"""
+        """Get backtest results with trades (eager loaded)."""
         try:
-            backtest_run = db.query(BacktestRun).filter(
-                BacktestRun.id == backtest_id
-            ).first()
+            backtest_run = (
+                db.query(BacktestRun)
+                .options(joinedload(BacktestRun.trades), joinedload(BacktestRun.strategy))
+                .filter(BacktestRun.id == backtest_id)
+                .first()
+            )
 
             if not backtest_run:
-                return {"error": "Backtest no encontrado"}
+                return {"error": "Backtest not found"}
 
-            # Convertir a diccionario
-            result = {
+            return {
                 "id": backtest_run.id,
+                "owner_id": backtest_run.owner_id,
                 "strategy_id": backtest_run.strategy_id,
+                "strategy_type": backtest_run.strategy.strategy_type.value if backtest_run.strategy else None,
                 "pair": backtest_run.pair,
                 "timeframe": backtest_run.timeframe,
                 "total_return_pct": backtest_run.total_return_pct,
@@ -208,8 +202,8 @@ class BacktestService:
                 ],
             }
 
-            return result
-
         except Exception as e:
-            logger.error(f"Error obteniendo resultados: {str(e)}")
-            return {"error": str(e)[:100]}
+            logger.error(f"Error fetching backtest results: {str(e)}")
+            if settings.DEBUG:
+                return {"error": str(e)[:200]}
+            return {"error": "Failed to fetch backtest results"}

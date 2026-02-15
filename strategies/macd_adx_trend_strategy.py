@@ -26,6 +26,11 @@ class MACDADXTrendStrategyConfig:
     # Gestión de señales
     allow_short: bool = True        # permitir cortos o no
 
+    def __post_init__(self) -> None:
+        assert self.fast_ema < self.slow_ema, "fast_ema must be < slow_ema"
+        assert self.adx_threshold > 0, "adx_threshold must be positive"
+        assert self.signal_ema > 0, "signal_ema must be positive"
+
 
 class MACDADXTrendStrategy(BaseStrategy[MACDADXTrendStrategyConfig]):
     """
@@ -104,7 +109,7 @@ class MACDADXTrendStrategy(BaseStrategy[MACDADXTrendStrategyConfig]):
         dx = 100.0 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan)
         adx = dx.ewm(alpha=1.0 / window, adjust=False).mean()
 
-        return adx
+        return adx, plus_di, minus_di
 
     # ========================
     # Generación de señales
@@ -146,13 +151,16 @@ class MACDADXTrendStrategy(BaseStrategy[MACDADXTrendStrategyConfig]):
         data["macd_signal"] = macd_signal
         data["macd_hist"] = macd_hist
 
-        # ADX
-        data["adx"] = self._compute_adx(
+        # ADX with DI+/DI-
+        adx, plus_di, minus_di = self._compute_adx(
             high=data["high"],
             low=data["low"],
             close=data["close"],
             window=self.config.adx_window,
         )
+        data["adx"] = adx
+        data["plus_di"] = plus_di
+        data["minus_di"] = minus_di
 
         # Señales
         data["signal"] = 0
@@ -164,6 +172,10 @@ class MACDADXTrendStrategy(BaseStrategy[MACDADXTrendStrategyConfig]):
         # Filtro ADX
         strong_trend = data["adx"] >= self.config.adx_threshold
 
+        # DI directional filter
+        di_long = data["plus_di"] > data["minus_di"]
+        di_short = data["minus_di"] > data["plus_di"]
+
         # Cruce MACD alcista: MACD cruza por encima de la señal
         macd_cross_up = (data["macd"] > data["macd_signal"]) & (
             data["macd"].shift(1) <= data["macd_signal"].shift(1)
@@ -174,11 +186,11 @@ class MACDADXTrendStrategy(BaseStrategy[MACDADXTrendStrategyConfig]):
             data["macd"].shift(1) >= data["macd_signal"].shift(1)
         )
 
-        # Longs: tendencia alcista + MACD cruce alcista + ADX fuerte
-        long_cond = trend_long & strong_trend & macd_cross_up
+        # Longs: tendencia alcista + MACD cruce alcista + ADX fuerte + DI+ > DI-
+        long_cond = trend_long & strong_trend & macd_cross_up & di_long
 
-        # Shorts: tendencia bajista + MACD cruce bajista + ADX fuerte
-        short_cond = trend_short & strong_trend & macd_cross_down
+        # Shorts: tendencia bajista + MACD cruce bajista + ADX fuerte + DI- > DI+
+        short_cond = trend_short & strong_trend & macd_cross_down & di_short
 
         data.loc[long_cond, "signal"] = 1
 

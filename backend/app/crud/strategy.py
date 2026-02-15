@@ -48,7 +48,7 @@ class StrategyCRUD:
         ).first()
         
         if db_strategy:
-            update_data = strategy_update.dict(exclude_unset=True)
+            update_data = strategy_update.model_dump(exclude_unset=True)
             for field, value in update_data.items():
                 setattr(db_strategy, field, value)
             db.add(db_strategy)

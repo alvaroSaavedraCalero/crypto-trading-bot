@@ -1,27 +1,25 @@
-"""
-Servicio de Paper Trading
-Integra la lógica de paper trading existente con la API
-"""
+"""Paper Trading Service - integrates paper trading with API."""
 
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
-import json
+from datetime import datetime
+from typing import Dict, Optional, Any
 
 import pandas as pd
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-# Add project root to path for imports
-project_root = Path(__file__).parent.parent.parent.parent
-sys.path.insert(0, str(project_root))
+# Add project root to path for imports (only if not already present)
+project_root = str(Path(__file__).parent.parent.parent.parent)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from strategies.registry import STRATEGY_REGISTRY
 from backtesting.engine import Backtester, BacktestConfig
-from utils.risk import RiskManagementConfig, calculate_position_size_spot
+from utils.risk import RiskManagementConfig
 from data.yfinance_downloader import get_yfinance_data
 from utils.logger import get_logger
 
+from ..config import settings
 from ..models import (
     Strategy as StrategyModel,
     PaperTradingSession,
@@ -32,7 +30,7 @@ logger = get_logger(__name__)
 
 
 class PaperTradingService:
-    """Servicio para gestionar paper trading"""
+    """Service for managing paper trading."""
 
     @staticmethod
     def create_session(
@@ -44,20 +42,22 @@ class PaperTradingService:
         name: Optional[str] = None,
         initial_capital: float = 10000.0,
     ) -> Dict[str, Any]:
-        """Crea una nueva sesión de paper trading"""
+        """Create a new paper trading session."""
         try:
-            # Obtener estrategia
-            strategy = db.query(StrategyModel).filter(
-                StrategyModel.id == strategy_id,
-                StrategyModel.owner_id == owner_id,
-            ).first()
+            strategy = (
+                db.query(StrategyModel)
+                .filter(
+                    StrategyModel.id == strategy_id,
+                    StrategyModel.owner_id == owner_id,
+                )
+                .first()
+            )
 
             if not strategy:
-                return {"error": "Estrategia no encontrada"}
+                return {"error": "Strategy not found"}
 
-            # Crear sesión
             session_name = name or f"{strategy.name} - {pair}"
-            
+
             session = PaperTradingSession(
                 owner_id=owner_id,
                 strategy_id=strategy_id,
@@ -88,9 +88,11 @@ class PaperTradingService:
             }
 
         except Exception as e:
-            logger.error(f"Error creando sesión: {str(e)}")
+            logger.error(f"Error creating session: {str(e)}")
             db.rollback()
-            return {"error": str(e)[:100]}
+            if settings.DEBUG:
+                return {"error": str(e)[:200]}
+            return {"error": "Failed to create session"}
 
     @staticmethod
     def update_session_with_backtest(
@@ -101,27 +103,26 @@ class PaperTradingService:
         period: str = "60d",
         limit: int = 2500,
     ) -> Dict[str, Any]:
-        """
-        Actualiza una sesión de paper trading ejecutando un backtest
-        y guardando los trades generados
-        """
+        """Update a paper trading session by running a backtest and saving generated trades."""
         try:
-            session = db.query(PaperTradingSession).filter(
-                PaperTradingSession.id == session_id,
-            ).first()
+            session = (
+                db.query(PaperTradingSession)
+                .filter(PaperTradingSession.id == session_id)
+                .first()
+            )
 
             if not session:
-                return {"error": "Sesión no encontrada"}
+                return {"error": "Session not found"}
 
-            # Obtener estrategia
-            strategy = db.query(StrategyModel).filter(
-                StrategyModel.id == session.strategy_id,
-            ).first()
+            strategy = (
+                db.query(StrategyModel)
+                .filter(StrategyModel.id == session.strategy_id)
+                .first()
+            )
 
             if not strategy:
-                return {"error": "Estrategia no encontrada"}
+                return {"error": "Strategy not found"}
 
-            # Obtener datos
             df = get_yfinance_data(
                 symbol=pair,
                 timeframe=timeframe,
@@ -130,16 +131,14 @@ class PaperTradingService:
             )
 
             if df is None or df.empty:
-                return {"error": f"No se pudieron obtener datos para {pair}"}
+                return {"error": f"Could not fetch data for {pair}"}
 
-            # Obtener clase de estrategia
             if strategy.strategy_type not in STRATEGY_REGISTRY:
-                return {"error": f"Estrategia {strategy.strategy_type} no registrada"}
+                return {"error": f"Strategy type {strategy.strategy_type} not registered"}
 
             strategy_class, config_class = STRATEGY_REGISTRY[strategy.strategy_type]
             strategy_config = config_class(**strategy.config)
 
-            # Configuración de backtest
             backtest_config = BacktestConfig(
                 initial_capital=int(session.initial_capital),
                 sl_pct=session.backtest_config.get("sl_pct", 2) / 100,
@@ -150,12 +149,12 @@ class PaperTradingService:
 
             risk_config = RiskManagementConfig(risk_pct=0.01)
 
-            # Ejecutar backtest
             backtester = Backtester(backtest_config, risk_config)
             result = backtester.backtest(df, strategy_class, strategy_config)
 
-            # Guardar trades
+            # Bulk insert trades
             total_pnl = 0.0
+            trade_objects = []
             for trade in result.trades:
                 paper_trade = PaperTrade(
                     paper_trading_session_id=session_id,
@@ -172,10 +171,12 @@ class PaperTradingService:
                     is_winning=1 if trade.pnl > 0 else 0,
                     closed_at=trade.exit_time,
                 )
-                db.add(paper_trade)
+                trade_objects.append(paper_trade)
                 total_pnl += trade.pnl
 
-            # Actualizar sesión
+            db.add_all(trade_objects)
+
+            # Update session
             session.total_trades = result.num_trades
             session.winning_trades = result.winning_trades
             session.losing_trades = result.losing_trades
@@ -198,25 +199,30 @@ class PaperTradingService:
             }
 
         except Exception as e:
-            logger.error(f"Error actualizando sesión: {str(e)}", exc_info=True)
+            logger.error(f"Error updating session: {str(e)}", exc_info=True)
             db.rollback()
-            return {"error": str(e)[:100]}
+            if settings.DEBUG:
+                return {"error": str(e)[:200]}
+            return {"error": "Failed to update session"}
 
     @staticmethod
     def get_session_details(
         db: Session,
         session_id: int,
     ) -> Dict[str, Any]:
-        """Obtiene detalles de una sesión con todos sus trades"""
+        """Get session details with all trades (eager loaded)."""
         try:
-            session = db.query(PaperTradingSession).filter(
-                PaperTradingSession.id == session_id,
-            ).first()
+            session = (
+                db.query(PaperTradingSession)
+                .options(joinedload(PaperTradingSession.trades))
+                .filter(PaperTradingSession.id == session_id)
+                .first()
+            )
 
             if not session:
-                return {"error": "Sesión no encontrada"}
+                return {"error": "Session not found"}
 
-            result = {
+            return {
                 "id": session.id,
                 "strategy_id": session.strategy_id,
                 "name": session.name,
@@ -248,25 +254,27 @@ class PaperTradingService:
                 ],
             }
 
-            return result
-
         except Exception as e:
-            logger.error(f"Error obteniendo sesión: {str(e)}")
-            return {"error": str(e)[:100]}
+            logger.error(f"Error fetching session: {str(e)}")
+            if settings.DEBUG:
+                return {"error": str(e)[:200]}
+            return {"error": "Failed to fetch session details"}
 
     @staticmethod
     def close_session(
         db: Session,
         session_id: int,
     ) -> Dict[str, Any]:
-        """Cierra una sesión de paper trading"""
+        """Close a paper trading session."""
         try:
-            session = db.query(PaperTradingSession).filter(
-                PaperTradingSession.id == session_id,
-            ).first()
+            session = (
+                db.query(PaperTradingSession)
+                .filter(PaperTradingSession.id == session_id)
+                .first()
+            )
 
             if not session:
-                return {"error": "Sesión no encontrada"}
+                return {"error": "Session not found"}
 
             session.is_active = False
             session.end_date = datetime.utcnow()
@@ -274,13 +282,15 @@ class PaperTradingService:
 
             return {
                 "status": "success",
-                "message": "Sesión cerrada",
+                "message": "Session closed",
                 "session_id": session_id,
                 "final_capital": session.current_capital,
                 "total_return_pct": session.total_return_pct,
             }
 
         except Exception as e:
-            logger.error(f"Error cerrando sesión: {str(e)}")
+            logger.error(f"Error closing session: {str(e)}")
             db.rollback()
-            return {"error": str(e)[:100]}
+            if settings.DEBUG:
+                return {"error": str(e)[:200]}
+            return {"error": "Failed to close session"}

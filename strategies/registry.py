@@ -42,6 +42,16 @@ from strategies.ai_strategy import (
     AIStrategy,
     AIStrategyConfig,
 )
+from strategies.vwap_strategy import VWAPStrategy, VWAPConfig
+from strategies.kama_strategy import KAMAStrategy, KAMAConfig
+from strategies.mean_reversion_strategy import MeanReversionStrategy, MeanReversionConfig
+from strategies.order_flow_strategy import OrderFlowStrategy, OrderFlowConfig
+from strategies.volume_profile_strategy import VolumeProfileStrategy, VolumeProfileConfig
+from strategies.multi_tf_strategy import MultiTFStrategy, MultiTFConfig
+from strategies.garch_strategy import GARCHStrategy, GARCHConfig
+from strategies.wyckoff_strategy import WyckoffStrategy, WyckoffConfig
+from strategies.pairs_trading_strategy import PairsTradingStrategy, PairsTradingConfig
+from strategies.composite_strategy import CompositeStrategy, CompositeConfig
 
 # Mapa: tipo_de_estrategia -> (ClaseEstrategia, ClaseConfig)
 # Los strings deben coincidir con los strategy_type que usas en config/settings.py
@@ -56,6 +66,16 @@ STRATEGY_REGISTRY: Dict[str, Tuple[Type[BaseStrategy], Type]] = {
     "SMART_MONEY": (SmartMoneyStrategy, SmartMoneyStrategyConfig),
     "ICT": (ICTStrategy, ICTStrategyConfig),
     "AI_RF": (AIStrategy, AIStrategyConfig),
+    "VWAP": (VWAPStrategy, VWAPConfig),
+    "KAMA": (KAMAStrategy, KAMAConfig),
+    "MEAN_REVERSION": (MeanReversionStrategy, MeanReversionConfig),
+    "ORDER_FLOW": (OrderFlowStrategy, OrderFlowConfig),
+    "VOLUME_PROFILE": (VolumeProfileStrategy, VolumeProfileConfig),
+    "MULTI_TF": (MultiTFStrategy, MultiTFConfig),
+    "GARCH": (GARCHStrategy, GARCHConfig),
+    "WYCKOFF": (WyckoffStrategy, WyckoffConfig),
+    "PAIRS_TRADING": (PairsTradingStrategy, PairsTradingConfig),
+    "COMPOSITE": (CompositeStrategy, CompositeConfig),
 }
 
 

@@ -8,6 +8,11 @@ python-multipart==0.0.6
 python-dotenv==1.0.0
 psutil==5.9.6
 
+# Authentication
+python-jose[cryptography]==3.5.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+
 # Data Processing & Analysis
 pandas==2.1.3
 numpy==1.26.2
@@ -15,8 +20,18 @@ ta==0.10.2
 yfinance==0.2.33
 requests==2.31.0
 
+# Strategy Libraries
+statsmodels>=0.14.0
+arch>=8.0.0
+scipy>=1.17.0
+scikit-learn>=1.5.0
+
+# Database Migrations
+alembic>=1.18.0
+
+# Testing
+httpx>=0.28.0
+pytest>=8.0.0
+
 # Database (optional - for PostgreSQL)
 # psycopg2-binary==2.9.9
-# flake8>=7.0.0
-# mypy>=1.10.0
-# pre-commit>=3.7.0

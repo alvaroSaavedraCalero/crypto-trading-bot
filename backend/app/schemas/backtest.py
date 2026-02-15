@@ -14,7 +14,7 @@ class BacktestTradeBase(BaseModel):
     take_profit_price: float
     pnl: float
     pnl_pct: float
-    is_winning: int
+    is_winning: bool
 
 
 class BacktestTrade(BacktestTradeBase):
@@ -57,6 +57,7 @@ class BacktestRun(BacktestRunBase):
     strategy_id: int
     created_at: datetime
     notes: Optional[str] = None
+    strategy_type: Optional[str] = None
 
     class Config:
         from_attributes = True

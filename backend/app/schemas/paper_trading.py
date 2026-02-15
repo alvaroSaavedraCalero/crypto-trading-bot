@@ -14,7 +14,7 @@ class PaperTradeBase(BaseModel):
     take_profit_price: float
     pnl: float = 0.0
     pnl_pct: float = 0.0
-    is_winning: Optional[int] = None
+    is_winning: Optional[bool] = None
 
 
 class PaperTrade(PaperTradeBase):

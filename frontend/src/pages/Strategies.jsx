@@ -1,18 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { strategiesAPI } from '../services/api';
 import './Strategies.css';
 
 const STRATEGY_TYPES = [
-  'MA_RSI',
-  'MACD_ADX',
-  'KELTNER',
-  'BB_TREND',
-  'SQUEEZE',
-  'SUPERTREND',
-  'BOLLINGER_MR',
-  'SMART_MONEY',
-  'ICT',
-  'AI_RF',
+  'MA_RSI', 'MACD_ADX', 'KELTNER', 'BB_TREND', 'SQUEEZE',
+  'SUPERTREND', 'BOLLINGER_MR', 'SMART_MONEY', 'ICT', 'AI_RF',
 ];
 
 const DEFAULT_CONFIGS = {
@@ -33,6 +26,7 @@ function Strategies() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [editingStrategy, setEditingStrategy] = useState(null);
 
   useEffect(() => {
     fetchStrategies();
@@ -52,14 +46,20 @@ function Strategies() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Seguro que deseas eliminar esta estrategia?')) return;
+    if (!window.confirm('Seguro que deseas eliminar esta estrategia?')) return;
     try {
       setError(null);
       await strategiesAPI.delete(id);
+      toast.success('Estrategia eliminada');
       await fetchStrategies();
     } catch (err) {
-      setError('Error al eliminar: ' + (err.response?.data?.detail || err.message));
+      toast.error('Error al eliminar: ' + (err.response?.data?.detail || err.message));
     }
+  };
+
+  const handleEdit = (strategy) => {
+    setEditingStrategy(strategy);
+    setShowForm(true);
   };
 
   return (
@@ -68,9 +68,9 @@ function Strategies() {
         <h1>Estrategias</h1>
         <button
           className="btn-primary"
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => { setShowForm(!showForm); setEditingStrategy(null); }}
         >
-          {showForm ? '✕ Cancelar' : '+ Nueva Estrategia'}
+          {showForm ? 'Cancelar' : '+ Nueva Estrategia'}
         </button>
       </div>
 
@@ -79,8 +79,10 @@ function Strategies() {
       {showForm && (
         <div className="form-container">
           <StrategyForm
+            editData={editingStrategy}
             onSuccess={() => {
               setShowForm(false);
+              setEditingStrategy(null);
               fetchStrategies();
             }}
             onError={(msg) => setError(msg)}
@@ -90,7 +92,9 @@ function Strategies() {
 
       <div className="strategies-list">
         {loading ? (
-          <p>Cargando estrategias...</p>
+          <div style={{ display: 'grid', gap: '1rem' }}>
+            {[1, 2, 3].map(i => <div key={i} className="skeleton skeleton-card" />)}
+          </div>
         ) : strategies.length === 0 ? (
           <div className="empty-state">
             <p>No hay estrategias creadas aun</p>
@@ -102,7 +106,7 @@ function Strategies() {
               <div className="strategy-header">
                 <h3>{strategy.name}</h3>
                 <span className={`status-badge ${strategy.is_active ? 'active' : 'inactive'}`}>
-                  {strategy.is_active ? '● Activa' : '● Inactiva'}
+                  {strategy.is_active ? 'Activa' : 'Inactiva'}
                 </span>
               </div>
               <p className="strategy-type">Tipo: <strong>{strategy.strategy_type}</strong></p>
@@ -113,10 +117,10 @@ function Strategies() {
                 <span>TP Ratio: {strategy.take_profit_rr}:1</span>
               </div>
               <div className="strategy-actions">
-                <button
-                  className="btn-secondary"
-                  onClick={() => handleDelete(strategy.id)}
-                >
+                <button className="btn-secondary" onClick={() => handleEdit(strategy)}>
+                  Editar
+                </button>
+                <button className="btn-secondary btn-danger" onClick={() => handleDelete(strategy.id)}>
                   Eliminar
                 </button>
               </div>
@@ -128,15 +132,16 @@ function Strategies() {
   );
 }
 
-function StrategyForm({ onSuccess, onError }) {
+function StrategyForm({ editData, onSuccess, onError }) {
+  const isEditing = !!editData;
   const [formData, setFormData] = useState({
-    name: '',
-    strategy_type: 'MA_RSI',
-    description: '',
-    initial_capital: 10000,
-    stop_loss_pct: 2,
-    take_profit_rr: 2,
-    config: JSON.stringify(DEFAULT_CONFIGS['MA_RSI'], null, 2),
+    name: editData?.name || '',
+    strategy_type: editData?.strategy_type || 'MA_RSI',
+    description: editData?.description || '',
+    initial_capital: editData?.initial_capital || 10000,
+    stop_loss_pct: editData?.stop_loss_pct || 2,
+    take_profit_rr: editData?.take_profit_rr || 2,
+    config: JSON.stringify(editData?.config || DEFAULT_CONFIGS['MA_RSI'], null, 2),
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -159,7 +164,7 @@ function StrategyForm({ onSuccess, onError }) {
     }
     try {
       setSubmitting(true);
-      await strategiesAPI.create({
+      const payload = {
         name: formData.name,
         strategy_type: formData.strategy_type,
         description: formData.description || null,
@@ -167,10 +172,18 @@ function StrategyForm({ onSuccess, onError }) {
         stop_loss_pct: Number(formData.stop_loss_pct),
         take_profit_rr: Number(formData.take_profit_rr),
         config: parsedConfig,
-      });
+      };
+      if (isEditing) {
+        await strategiesAPI.update(editData.id, payload);
+        toast.success('Estrategia actualizada');
+      } else {
+        await strategiesAPI.create(payload);
+        toast.success('Estrategia creada');
+      }
       onSuccess();
     } catch (err) {
-      onError('Error al crear estrategia: ' + (err.response?.data?.detail || err.message));
+      const action = isEditing ? 'actualizar' : 'crear';
+      toast.error(`Error al ${action}: ${err.response?.data?.detail || err.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -178,7 +191,7 @@ function StrategyForm({ onSuccess, onError }) {
 
   return (
     <form className="strategy-form" onSubmit={handleSubmit}>
-      <h3>Crear Nueva Estrategia</h3>
+      <h3>{isEditing ? 'Editar Estrategia' : 'Crear Nueva Estrategia'}</h3>
 
       <div className="form-group">
         <label>Nombre *</label>
@@ -195,6 +208,7 @@ function StrategyForm({ onSuccess, onError }) {
         <select
           value={formData.strategy_type}
           onChange={(e) => handleTypeChange(e.target.value)}
+          disabled={isEditing}
         >
           {STRATEGY_TYPES.map((t) => (
             <option key={t} value={t}>{t}</option>
@@ -255,7 +269,7 @@ function StrategyForm({ onSuccess, onError }) {
 
       <div className="form-actions">
         <button type="submit" className="btn-primary" disabled={submitting}>
-          {submitting ? 'Creando...' : 'Crear Estrategia'}
+          {submitting ? (isEditing ? 'Guardando...' : 'Creando...') : (isEditing ? 'Guardar Cambios' : 'Crear Estrategia')}
         </button>
       </div>
     </form>

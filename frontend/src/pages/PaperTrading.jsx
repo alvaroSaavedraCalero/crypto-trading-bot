@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { paperTradingAPI, strategiesAPI } from '../services/api';
 import './PaperTrading.css';
 
@@ -9,6 +10,9 @@ function PaperTrading() {
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [expandedSession, setExpandedSession] = useState(null);
+  const [sessionTrades, setSessionTrades] = useState({});
+  const [runningSession, setRunningSession] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -54,9 +58,10 @@ function PaperTrading() {
       });
       setShowForm(false);
       setFormData({ name: '', strategy_id: strategies[0]?.id || '', pair: 'BTC-USD', timeframe: '15m' });
+      toast.success('Sesion creada correctamente');
       await fetchData();
     } catch (err) {
-      setError('Error al crear sesion: ' + (err.response?.data?.detail || err.message));
+      toast.error('Error al crear sesion: ' + (err.response?.data?.detail || err.message));
     } finally {
       setCreating(false);
     }
@@ -66,20 +71,58 @@ function PaperTrading() {
     try {
       setError(null);
       await paperTradingAPI.closeSession(sessionId);
+      toast.success('Sesion cerrada');
       await fetchData();
     } catch (err) {
-      setError('Error al cerrar sesion: ' + (err.response?.data?.detail || err.message));
+      toast.error('Error al cerrar sesion: ' + (err.response?.data?.detail || err.message));
     }
   };
 
-  if (loading) return <div className="paper-trading-page"><p>Cargando sesiones...</p></div>;
+  const handleRunSession = async (sessionId) => {
+    try {
+      setRunningSession(sessionId);
+      setError(null);
+      await paperTradingAPI.runSession(sessionId);
+      toast.success('Sesion ejecutada correctamente');
+      await fetchData();
+    } catch (err) {
+      toast.error('Error al ejecutar: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setRunningSession(null);
+    }
+  };
+
+  const handleToggleTrades = async (sessionId) => {
+    if (expandedSession === sessionId) {
+      setExpandedSession(null);
+      return;
+    }
+    try {
+      const res = await paperTradingAPI.getTrades(sessionId);
+      setSessionTrades(prev => ({ ...prev, [sessionId]: res.data }));
+      setExpandedSession(sessionId);
+    } catch (err) {
+      toast.error('Error al cargar trades: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="paper-trading-page">
+        <div className="page-header"><h1>Paper Trading</h1></div>
+        <div style={{ display: 'grid', gap: '1rem' }}>
+          {[1, 2].map(i => <div key={i} className="skeleton skeleton-card" />)}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="paper-trading-page">
       <div className="page-header">
         <h1>Paper Trading</h1>
         <button className="btn-primary" onClick={() => setShowForm(!showForm)}>
-          {showForm ? '✕ Cancelar' : '+ Nueva Sesion'}
+          {showForm ? 'Cancelar' : '+ Nueva Sesion'}
         </button>
       </div>
 
@@ -88,7 +131,7 @@ function PaperTrading() {
       {showForm && (
         <div className="form-container">
           <form className="strategy-form" onSubmit={handleCreateSession}>
-            <h3>Nueva Sesion de Paper Trading</h3>
+            <h3 style={{ color: 'var(--text-primary)', marginBottom: '1rem' }}>Nueva Sesion de Paper Trading</h3>
 
             <div className="form-group">
               <label>Nombre *</label>
@@ -110,9 +153,7 @@ function PaperTrading() {
               >
                 {strategies.length === 0 && <option value="">Sin estrategias</option>}
                 {strategies.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.strategy_type})
-                  </option>
+                  <option key={s.id} value={s.id}>{s.name} ({s.strategy_type})</option>
                 ))}
               </select>
             </div>
@@ -164,10 +205,10 @@ function PaperTrading() {
               <div className="session-header">
                 <div>
                   <h3>{session.name}</h3>
-                  <p className="session-meta">{session.pair} • {session.timeframe}</p>
+                  <p className="session-meta">{session.pair} / {session.timeframe}</p>
                 </div>
                 <span className={`status-badge ${session.is_active ? 'active' : 'inactive'}`}>
-                  ● {session.is_active ? 'Activa' : 'Cerrada'}
+                  {session.is_active ? 'Activa' : 'Cerrada'}
                 </span>
               </div>
 
@@ -191,7 +232,7 @@ function PaperTrading() {
                 </div>
                 <div className="stat">
                   <p className="stat-label">Inicio</p>
-                  <p className="stat-value">
+                  <p className="stat-value" style={{ fontSize: '0.85rem' }}>
                     {session.created_at ? new Date(session.created_at).toLocaleDateString() : '-'}
                   </p>
                 </div>
@@ -199,14 +240,62 @@ function PaperTrading() {
 
               <div className="session-actions">
                 {session.is_active && (
-                  <button
-                    className="btn-secondary"
-                    onClick={() => handleCloseSession(session.id)}
-                  >
-                    Cerrar Sesion
-                  </button>
+                  <>
+                    <button
+                      className="btn-primary"
+                      style={{ fontSize: '0.85rem', padding: '0.4rem 0.75rem' }}
+                      onClick={() => handleRunSession(session.id)}
+                      disabled={runningSession === session.id}
+                    >
+                      {runningSession === session.id ? 'Ejecutando...' : 'Ejecutar'}
+                    </button>
+                    <button className="btn-secondary" onClick={() => handleCloseSession(session.id)}>
+                      Cerrar Sesion
+                    </button>
+                  </>
                 )}
+                <button className="btn-secondary" onClick={() => handleToggleTrades(session.id)}>
+                  {expandedSession === session.id ? 'Ocultar Trades' : 'Ver Trades'}
+                </button>
               </div>
+
+              {expandedSession === session.id && (
+                <div className="session-trades">
+                  <h4>Trades de la sesion</h4>
+                  {(sessionTrades[session.id] || []).length === 0 ? (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Sin trades aun</p>
+                  ) : (
+                    <div className="table-wrapper">
+                      <table className="trades-table">
+                        <thead>
+                          <tr>
+                            <th>Lado</th>
+                            <th>Entrada</th>
+                            <th>Salida</th>
+                            <th>PnL</th>
+                            <th>PnL %</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sessionTrades[session.id].map((t, idx) => (
+                            <tr key={idx}>
+                              <td><strong>{(t.side || 'long').toUpperCase()}</strong></td>
+                              <td>${Number(t.entry_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                              <td>{t.exit_price ? `$${Number(t.exit_price).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '-'}</td>
+                              <td className={(t.pnl || 0) < 0 ? 'negative' : 'positive'}>
+                                ${Number(t.pnl || 0).toFixed(2)}
+                              </td>
+                              <td className={(t.pnl_pct || 0) < 0 ? 'negative' : 'positive'}>
+                                {(t.pnl_pct || 0) > 0 ? '+' : ''}{Number(t.pnl_pct || 0).toFixed(2)}%
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))
         )}

@@ -24,6 +24,13 @@ class ICTStrategyConfig:
     # Gestión
     allow_short: bool = True
 
+    def __post_init__(self) -> None:
+        assert 0 <= self.kill_zone_start_hour <= 23, "kill_zone_start_hour must be 0-23"
+        assert 0 <= self.kill_zone_end_hour <= 23, "kill_zone_end_hour must be 0-23"
+        assert self.swing_length > 0, "swing_length must be positive"
+        assert self.liquidity_lookback > 0, "liquidity_lookback must be positive"
+        assert self.fvg_min_size_pct > 0, "fvg_min_size_pct must be positive"
+
 
 class ICTStrategy(BaseStrategy[ICTStrategyConfig]):
     """

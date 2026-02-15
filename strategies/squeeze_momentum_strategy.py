@@ -35,9 +35,19 @@ class SqueezeMomentumConfig:
     allow_short: bool = True         # permitir cortos o no
 
 
-class SqueezeMomentumStrategy(BaseStrategy):
+    def __post_init__(self) -> None:
+        assert self.bb_window > 0, "bb_window must be positive"
+        assert self.bb_mult > 0, "bb_mult must be positive"
+        assert self.kc_window > 0, "kc_window must be positive"
+        assert self.kc_mult > 0, "kc_mult must be positive"
+        assert self.mom_window > 0, "mom_window must be positive"
+        assert self.atr_window > 0, "atr_window must be positive"
+        assert self.min_squeeze_bars > 0, "min_squeeze_bars must be positive"
+
+
+class SqueezeMomentumStrategy(BaseStrategy[SqueezeMomentumConfig]):
     def __init__(self, config: SqueezeMomentumConfig) -> None:
-        self.config = config
+        super().__init__(config)
 
     def generate_signals(self, df: pd.DataFrame) -> pd.DataFrame:
         """

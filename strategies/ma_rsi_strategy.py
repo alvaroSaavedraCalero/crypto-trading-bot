@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 import ta
 
-from strategies.base import BaseStrategy
 from .base import BaseStrategy, StrategyMetadata
 from utils.validation import (
     ValidationError,
@@ -162,6 +161,14 @@ class MovingAverageRSIStrategy(BaseStrategy[MovingAverageRSIStrategyConfig]):
 
             # Anulamos cortos en tendencia alcista
             data.loc[(data["signal"] == -1) & ~down_trend, "signal"] = 0
+
+        # ============================
+        # 5) Volume confirmation filter
+        # ============================
+        if "volume" in data.columns:
+            vol_ma = data["volume"].rolling(window=20, min_periods=20).mean()
+            low_volume = data["volume"] < vol_ma
+            data.loc[low_volume & (data["signal"] != 0), "signal"] = 0
 
         # Opcional: poner a 0 las señales donde no haya fast/slow MA válidas
         valid_ma = data["fast_ma"].notna() & data["slow_ma"].notna()

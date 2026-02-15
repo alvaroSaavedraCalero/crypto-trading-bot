@@ -1,55 +1,69 @@
 .sidebar {
-  width: 250px;
-  background-color: #1a252f;
-  color: white;
+  width: 240px;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
   height: 100vh;
   overflow-y: auto;
-  transition: all 0.3s ease;
-  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+  transition: width 0.3s ease;
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .sidebar.closed {
   width: 0;
   overflow: hidden;
+  border-right: none;
 }
 
 .sidebar-brand {
-  padding: 2rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1.5rem 1rem;
+  border-bottom: 1px solid var(--border);
   text-align: center;
 }
 
 .sidebar-brand h2 {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
+  color: var(--accent);
+  letter-spacing: 0.5px;
 }
 
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 1rem 0;
+  gap: 2px;
+  padding: 0.75rem 0;
+}
+
+.sidebar-section-label {
+  padding: 1rem 1.25rem 0.4rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  font-weight: 600;
 }
 
 .nav-link {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.75rem 1.5rem;
-  color: rgba(255, 255, 255, 0.7);
+  padding: 0.65rem 1.25rem;
+  color: var(--text-secondary);
   text-decoration: none;
-  transition: all 0.2s;
+  transition: all var(--transition);
   border-left: 3px solid transparent;
+  font-size: 0.9rem;
 }
 
 .nav-link:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: white;
+  background-color: var(--bg-card);
+  color: var(--text-primary);
 }
 
 .nav-link.active {
-  background-color: rgba(76, 175, 80, 0.2);
-  border-left-color: #4caf50;
-  color: #4caf50;
+  background-color: var(--accent-soft);
+  border-left-color: var(--accent);
+  color: var(--accent);
   font-weight: 600;
 }
 
