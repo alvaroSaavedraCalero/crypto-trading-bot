@@ -1,211 +1,116 @@
-#!/usr/bin/env python3
-"""
-Script de prueba para la integración del backend con la lógica de backtesting
-"""
+"""Integration tests for backtest and paper trading services."""
 
-import sys
-from pathlib import Path
-import asyncio
-import json
-
-# Add project root
-sys.path.insert(0, str(Path(__file__).parent))
-
-from backend.app.database import SessionLocal, init_db
-from backend.app.models import Strategy as StrategyModel, User
+import pytest
+from backend.app.models import Strategy, StrategyType
 from backend.app.services import BacktestService, PaperTradingService
-from sqlalchemy.orm import Session
 
 
-def setup_test_data(db: Session):
-    """Configura datos de prueba"""
-    
-    # Crear usuario de prueba
-    user = db.query(User).filter(User.id == 1).first()
-    if not user:
-        user = User(
-            id=1,
-            username="testuser",
-            email="test@example.com",
-            hashed_password="hashed_password",
-        )
-        db.add(user)
-        db.commit()
-    
-    # Crear estrategia de prueba
-    strategy = db.query(StrategyModel).filter(StrategyModel.owner_id == 1).first()
-    if not strategy:
-        strategy = StrategyModel(
-            owner_id=1,
-            name="MA_RSI Test",
-            description="Estrategia MA_RSI de prueba",
-            strategy_type="MA_RSI",
-            config={
-                "fast_window": 10,
-                "slow_window": 20,
-                "rsi_window": 14,
-                "rsi_overbought": 70.0,
-                "rsi_oversold": 30.0,
-                "use_rsi_filter": False,
-            },
-            initial_capital=10000,
-            stop_loss_pct=2,
-            take_profit_rr=2,
-        )
-        db.add(strategy)
-        db.commit()
-    
-    return user, strategy
+def _create_test_strategy(db_session, owner_id):
+    """Helper to create a test strategy in the database."""
+    strategy = Strategy(
+        owner_id=owner_id,
+        name="MA_RSI Test",
+        description="Test MA_RSI strategy",
+        strategy_type=StrategyType.MA_RSI,
+        config={
+            "fast_window": 10,
+            "slow_window": 20,
+            "rsi_window": 14,
+            "rsi_overbought": 70.0,
+            "rsi_oversold": 30.0,
+            "use_rsi_filter": False,
+        },
+        initial_capital=10000,
+        stop_loss_pct=2,
+        take_profit_rr=2,
+    )
+    db_session.add(strategy)
+    db_session.commit()
+    db_session.refresh(strategy)
+    return strategy
 
 
-def test_backtest(db: Session):
-    """Prueba ejecución de backtest"""
-    print("\n" + "="*60)
-    print("🔬 PRUEBA 1: Backtesting")
-    print("="*60)
-    
-    _, strategy = setup_test_data(db)
-    
-    print(f"\n📊 Ejecutando backtest para estrategia: {strategy.name}")
-    print(f"   Par: USDJPY, Timeframe: 15m")
-    
+@pytest.mark.integration
+def test_backtest_service_run(db_session, test_user):
+    """Test running a backtest via BacktestService.
+
+    Marked as integration because it calls yfinance which requires network access.
+    """
+    strategy = _create_test_strategy(db_session, test_user.id)
+
     result = BacktestService.run_backtest(
-        db=db,
+        db=db_session,
         strategy_id=strategy.id,
         pair="USDJPY",
         timeframe="15m",
         period="60d",
         limit=2000,
-        owner_id=1,
+        owner_id=test_user.id,
     )
-    
+
+    # If network is unavailable, the service returns an error dict rather than raising
     if "error" in result:
-        print(f"❌ Error: {result['error']}")
-    else:
-        print(f"✅ Backtest completado exitosamente!")
-        print(f"   ID: {result['backtest_id']}")
-        print(f"   Retorno: {result['total_return_pct']:.2f}%")
-        print(f"   Winrate: {result['winrate_pct']:.1f}%")
-        print(f"   Trades: {result['num_trades']}")
-        print(f"   Profit Factor: {result['profit_factor']:.2f}")
-        print(f"   Max Drawdown: {result['max_drawdown_pct']:.2f}%")
-        
-        # Obtener detalles
-        details = BacktestService.get_backtest_results(db, result['backtest_id'])
-        if "error" not in details:
-            print(f"\n   Trades generados:")
-            for i, trade in enumerate(details.get('trades', [])[:3], 1):
-                print(f"     {i}. {trade['side'].upper()}: {trade['entry_price']:.5f} → "
-                      f"{trade['exit_price']:.5f} | P&L: {trade['pnl_pct']:.2f}%")
-            if len(details.get('trades', [])) > 3:
-                print(f"     ... y {len(details['trades']) - 3} trades más")
-    
-    return result.get('backtest_id')
+        pytest.skip(f"Skipping due to network/data issue: {result['error']}")
+
+    assert result["status"] == "success"
+    assert "backtest_id" in result
+    assert isinstance(result["backtest_id"], int)
+    assert "total_return_pct" in result
+    assert "winrate_pct" in result
+    assert "num_trades" in result
+    assert result["pair"] == "USDJPY"
+    assert result["timeframe"] == "15m"
 
 
-def test_paper_trading(db: Session):
-    """Prueba paper trading"""
-    print("\n" + "="*60)
-    print("📈 PRUEBA 2: Paper Trading")
-    print("="*60)
-    
-    _, strategy = setup_test_data(db)
-    
-    print(f"\n🎮 Creando sesión de paper trading")
-    
-    session_result = PaperTradingService.create_session(
-        db=db,
-        owner_id=1,
+def test_paper_trading_service_create_session(db_session, test_user):
+    """Test creating a paper trading session."""
+    strategy = _create_test_strategy(db_session, test_user.id)
+
+    result = PaperTradingService.create_session(
+        db=db_session,
+        owner_id=test_user.id,
         strategy_id=strategy.id,
         pair="USDJPY",
         timeframe="15m",
         name="PT Test Session",
         initial_capital=10000.0,
     )
-    
-    if "error" in session_result:
-        print(f"❌ Error: {session_result['error']}")
-        return None
-    
-    session_id = session_result['session_id']
-    print(f"✅ Sesión creada: {session_result['name']}")
-    print(f"   ID: {session_id}")
-    print(f"   Capital: ${session_result['initial_capital']:,.2f}")
-    
-    # Ejecutar backtest en la sesión
-    print(f"\n   Ejecutando estrategia...")
-    
-    update_result = PaperTradingService.update_session_with_backtest(
-        db=db,
-        session_id=session_id,
+
+    assert "error" not in result
+    assert result["status"] == "success"
+    assert "session_id" in result
+    assert isinstance(result["session_id"], int)
+    assert result["name"] == "PT Test Session"
+    assert result["pair"] == "USDJPY"
+    assert result["timeframe"] == "15m"
+    assert result["initial_capital"] == 10000.0
+
+
+def test_paper_trading_service_close_session(db_session, test_user):
+    """Test creating and then closing a paper trading session."""
+    strategy = _create_test_strategy(db_session, test_user.id)
+
+    create_result = PaperTradingService.create_session(
+        db=db_session,
+        owner_id=test_user.id,
+        strategy_id=strategy.id,
         pair="USDJPY",
         timeframe="15m",
+        name="PT Close Test",
+        initial_capital=10000.0,
     )
-    
-    if "error" in update_result:
-        print(f"   ❌ Error: {update_result['error']}")
-    else:
-        print(f"   ✅ Backtest ejecutado!")
-        print(f"      Trades: {update_result['total_trades']}")
-        print(f"      Ganadores: {update_result['winning_trades']}")
-        print(f"      Perdedores: {update_result['losing_trades']}")
-        print(f"      Retorno: {update_result['total_return_pct']:.2f}%")
-        print(f"      Capital final: ${update_result['current_capital']:,.2f}")
-    
-    # Obtener detalles de la sesión
-    details = PaperTradingService.get_session_details(db, session_id)
-    
-    if "error" not in details:
-        print(f"\n   Detalles de la sesión:")
-        print(f"      Capital inicial: ${details['initial_capital']:,.2f}")
-        print(f"      Capital actual: ${details['current_capital']:,.2f}")
-        print(f"      Total trades: {details['total_trades']}")
-        print(f"      Max Drawdown: {details['max_drawdown_pct']:.2f}%")
-    
-    return session_id
 
+    assert "error" not in create_result
+    session_id = create_result["session_id"]
 
-def main():
-    """Función principal de prueba"""
-    print("\n" + "🚀 "*30)
-    print("PRUEBA DE INTEGRACIÓN - Backtesting + Paper Trading")
-    print("🚀 "*30)
-    
-    # Inicializar BD
-    print("\n🗄️  Inicializando base de datos...")
-    init_db()
-    print("✅ Base de datos lista")
-    
-    # Obtener sesión
-    db = SessionLocal()
-    
-    try:
-        # Prueba 1: Backtesting
-        backtest_id = test_backtest(db)
-        
-        # Prueba 2: Paper Trading
-        session_id = test_paper_trading(db)
-        
-        # Resumen
-        print("\n" + "="*60)
-        print("✅ RESUMEN DE PRUEBAS")
-        print("="*60)
-        print(f"\n✓ Backtest creado (ID: {backtest_id})")
-        print(f"✓ Sesión paper trading creada (ID: {session_id})")
-        print("\n📊 La integración está funcionando correctamente!")
-        print("\nPróximos pasos:")
-        print("1. Iniciar el backend: python -m uvicorn app.main:app --reload")
-        print("2. Iniciar el frontend: cd frontend && npm run dev")
-        print("3. Visitar: http://localhost:3000")
-        
-    except Exception as e:
-        print(f"\n❌ Error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-    
-    finally:
-        db.close()
+    close_result = PaperTradingService.close_session(
+        db=db_session,
+        session_id=session_id,
+    )
 
-
-if __name__ == "__main__":
-    main()
+    assert "error" not in close_result
+    assert close_result["status"] == "success"
+    assert close_result["session_id"] == session_id
+    assert close_result["message"] == "Session closed"
+    assert "final_capital" in close_result
+    assert "total_return_pct" in close_result
