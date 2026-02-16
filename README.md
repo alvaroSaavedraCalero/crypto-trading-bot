@@ -56,7 +56,7 @@ pip install -r requirements.txt
 cd frontend && npm install && cd ..
 
 # 4. Ejecutar
-./start_system.sh
+./scripts/start_system.sh
 ```
 
 Accede a:
@@ -114,14 +114,16 @@ crypto-trading-bot/
 │   │   │   ├── market_data.py, user_settings.py, audit_log.py
 │   │   │   ├── strategy_performance.py, order_history.py
 │   │   │   └── __init__.py   # Exports all models
-│   │   ├── schemas/          # Pydantic schemas
-│   │   ├── services/         # Logica de negocio (async backtesting)
-│   │   ├── crud/             # Operaciones BD
+│   │   ├── schemas/          # Pydantic schemas (user, strategy, backtest, paper_trading)
+│   │   ├── services/         # Logica de negocio (backtest_service, paper_trading_service)
+│   │   ├── crud/             # Operaciones BD (strategy CRUD)
 │   │   └── api/
 │   │       ├── auth.py       # JWT register/login/get_current_user
-│   │       └── routes/       # 6 modulos de rutas
+│   │       └── routes/       # health, strategies, backtests, paper_trading, dashboard, market
 │   ├── alembic/              # Database migrations
-│   └── alembic.ini
+│   ├── alembic.ini
+│   ├── .env.example          # Variables de entorno de ejemplo
+│   └── requirements.txt      # Dependencias backend
 │
 ├── frontend/                  # React + Vite (Dark Theme)
 │   ├── src/
@@ -138,6 +140,7 @@ crypto-trading-bot/
 │   │   │   ├── TradeJournal.jsx, RiskAnalytics.jsx, Settings.jsx
 │   │   ├── services/api.js   # Axios con JWT interceptor
 │   │   └── styles/theme.css  # CSS variables (dark theme)
+│   ├── .env.example          # Variables de entorno frontend
 │   └── package.json
 │
 ├── strategies/                # 20 estrategias de trading
@@ -152,7 +155,7 @@ crypto-trading-bot/
 │   ├── volume_profile_strategy.py, multi_tf_strategy.py
 │   ├── garch_strategy.py, wyckoff_strategy.py
 │   ├── pairs_trading_strategy.py, composite_strategy.py
-│   └── archived/             # Archived strategies
+│   └── archived/             # Estrategias archivadas
 │
 ├── backtesting/               # Motor de backtesting avanzado
 │   └── engine.py             # Backtester + walk_forward + monte_carlo
@@ -165,16 +168,43 @@ crypto-trading-bot/
 │       └── fear_greed.py     # Fear & Greed Index
 │
 ├── utils/                     # Utilidades
-│   ├── logger.py, risk.py, validation.py
+│   ├── logger.py             # Logging configurado
+│   ├── risk.py               # Gestion de riesgo
+│   └── validation.py         # Helpers de validacion
 │
 ├── tests/                     # Test suite (14 tests)
 │   ├── conftest.py           # Test DB, fixtures, auth helpers
 │   ├── test_health.py        # 4 health endpoint tests
-│   └── test_strategies.py    # 10 strategy CRUD + auth tests
+│   ├── test_strategies.py    # 10 strategy CRUD + auth tests
+│   └── integration/          # Tests de integracion
+│       └── test_integration.py
 │
-├── requirements.txt          # Python dependencies
-├── start_system.sh           # Script de inicio full-stack
-└── CLAUDE.md                 # Instrucciones para Claude Code
+├── scripts/                   # Scripts de utilidad
+│   ├── start_system.sh       # Inicio full-stack (backend :8000 + frontend :3000)
+│   ├── check_backend.py      # Verificacion de estado del backend
+│   └── status_report.py      # Reporte de estado de componentes
+│
+├── docs/                      # Documentacion
+│   ├── SETUP.md              # Guia de instalacion
+│   ├── QUICKSTART.md         # Inicio rapido
+│   ├── ARCHITECTURE.md       # Arquitectura actual del sistema
+│   ├── NEW_ARCHITECTURE.md   # Arquitectura propuesta v2.0
+│   ├── INTEGRATION_GUIDE.md  # Guia de integracion con ejemplos
+│   ├── INTEGRATION_SUMMARY.md # Resumen de integracion
+│   ├── READY_TO_LAUNCH.md    # Checklist de lanzamiento
+│   ├── RESUMEN_EJECUTIVO.md  # Resumen ejecutivo
+│   ├── INDICE.md             # Indice de documentacion
+│   └── PROYECTO_COMPLETO.txt # Overview completo del proyecto
+│
+├── examples/                  # Ejemplos de uso
+│   └── api_usage.py          # Ejemplo de uso de la API
+│
+├── requirements.txt          # Dependencias Python (raiz)
+├── requirements-dev.txt      # Dependencias de desarrollo
+├── pyproject.toml            # Configuracion del proyecto (black, isort, pytest, mypy)
+├── .gitignore                # Archivos ignorados por git
+├── CLAUDE.md                 # Instrucciones para Claude Code
+└── README.md                 # Este archivo
 ```
 
 ---
@@ -388,9 +418,11 @@ pytest -v
 pytest tests/test_health.py -v      # 4 health tests
 pytest tests/test_strategies.py -v  # 10 strategy CRUD + auth tests
 
-# Legacy
-python test_integration.py
-python STATUS_REPORT.py
+# Integracion
+pytest tests/integration/ -v
+
+# Reporte de estado
+python scripts/status_report.py
 ```
 
 ---
@@ -453,4 +485,4 @@ kill -9 <PID>
 
 ---
 
-**Ultima actualizacion**: 15 de febrero de 2026
+**Ultima actualizacion**: 16 de febrero de 2026

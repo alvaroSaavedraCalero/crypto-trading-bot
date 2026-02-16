@@ -10,7 +10,7 @@ Full-stack crypto trading bot with a FastAPI backend (JWT auth), React/Vite fron
 
 ### Start Full Stack
 ```bash
-./start_system.sh  # Backend on :8000, Frontend on :3000
+./scripts/start_system.sh  # Backend on :8000, Frontend on :3000
 ```
 
 ### Backend Only
@@ -30,8 +30,8 @@ source .venv/bin/activate
 pytest -v                          # All 14 tests (tests/ directory)
 pytest tests/test_health.py -v     # 4 health endpoint tests
 pytest tests/test_strategies.py -v # 10 strategy CRUD + auth tests
-python test_integration.py         # Legacy integration tests
-python STATUS_REPORT.py            # Component health check
+pytest tests/integration/ -v       # Integration tests
+python scripts/status_report.py    # Component health check
 ```
 
 ### Linting & Formatting
@@ -79,6 +79,10 @@ alembic downgrade -1                               # Rollback last
 - `data/` — Data providers (yfinance with TTL cache, Fear & Greed, abstract base)
 - `utils/` — Risk management (`risk.py`), validation helpers (`validation.py`), logging (`logger.py`)
 - `tests/` — Test suite (conftest.py with fixtures, test_health.py, test_strategies.py)
+- `tests/integration/` — Integration tests
+- `scripts/` — Utility scripts (start_system.sh, check_backend.py, status_report.py)
+- `docs/` — Project documentation (setup, architecture, quickstart, integration guides)
+- `examples/` — Usage examples (api_usage.py)
 
 ### Backend Flow
 ```

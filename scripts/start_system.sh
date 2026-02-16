@@ -1,7 +1,10 @@
 #!/bin/bash
 
 # Script para iniciar el sistema completo
-# Uso: ./start_system.sh
+# Uso: ./scripts/start_system.sh (from project root)
+
+# Navigate to project root (parent of scripts/)
+cd "$(dirname "$0")/.." || exit 1
 
 echo "🚀 Iniciando Crypto Trading Bot Full Stack"
 echo "=========================================="
